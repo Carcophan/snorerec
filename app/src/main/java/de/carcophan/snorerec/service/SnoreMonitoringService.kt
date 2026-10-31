@@ -1,0 +1,291 @@
+package de.carcophan.snorerec.service
+
+import android.Manifest
+import android.app.Notification
+import android.app.PendingIntent
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
+import android.media.AudioFormat
+import android.media.AudioRecord
+import android.media.MediaRecorder
+import android.os.Build
+import android.os.IBinder
+import android.os.PowerManager
+import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
+import androidx.core.content.ContextCompat
+import de.carcophan.snorerec.MainActivity
+import de.carcophan.snorerec.R
+import de.carcophan.snorerec.SnoreRecApp
+import de.carcophan.snorerec.audio.AudioConfig
+import de.carcophan.snorerec.audio.RingBuffer
+import de.carcophan.snorerec.audio.SnoreDetector
+import de.carcophan.snorerec.audio.YamnetClassifier
+import de.carcophan.snorerec.data.model.SnoreEvent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import java.io.File
+
+class SnoreMonitoringService : Service() {
+
+    private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
+    private var recordingJob: Job? = null
+    private var wakeLock: PowerManager.WakeLock? = null
+    private var audioRecord: AudioRecord? = null
+    private var snoreDetector: SnoreDetector? = null
+    private var yamnetClassifier: YamnetClassifier? = null
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val action = intent?.action
+        if (action == ACTION_STOP) {
+            stopMonitoring()
+            return START_NOT_STICKY
+        }
+
+        if (!_isMonitoring.value) {
+            startMonitoring()
+        }
+        return START_STICKY
+    }
+
+    private fun startMonitoring() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            stopSelf()
+            return
+        }
+
+        // 1. Acquire WakeLock
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "SnoreRec::AudioRecordingWakeLock").apply {
+            acquire(12 * 60 * 60 * 1000L) // 12 hours timeout safety
+        }
+
+        // 2. Start Foreground
+        val notification = buildNotification(snoreCount = 0)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            ServiceCompat.startForeground(
+                this,
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+
+        _isMonitoring.value = true
+        _snoreCount.value = 0
+        _currentDb.value = 20f
+
+        // 3. Start Database Session & Audio Loop
+        recordingJob = serviceScope.launch {
+            val repository = SnoreRecApp.instance.repository
+            val sessionId = repository.startNewSession()
+            _currentSessionId.value = sessionId
+
+            val recordingsDir = File(filesDir, "snore_audio/session_$sessionId").apply { mkdirs() }
+            val ringBuffer = RingBuffer(AudioConfig.RING_BUFFER_CAPACITY)
+
+            val classifier = try {
+                YamnetClassifier(applicationContext)
+            } catch (_: Exception) {
+                null
+            }
+            yamnetClassifier = classifier
+
+            val detector = SnoreDetector(
+                recordingsDir = recordingsDir,
+                ringBuffer = ringBuffer,
+                minDbThreshold = AudioConfig.SNORE_MIN_DB,
+                yamnetClassifier = classifier,
+                onSnoreDetected = { result ->
+                    serviceScope.launch {
+                        val event = SnoreEvent(
+                            sessionId = sessionId,
+                            timestamp = result.timestamp,
+                            durationMs = result.durationMs,
+                            peakDb = result.peakDb,
+                            avgDb = result.avgDb,
+                            audioFilePath = result.audioFile.absolutePath,
+                            snoreScore = result.snoreScore
+                        )
+                        repository.recordSnoreEvent(event)
+                        _snoreCount.value += 1
+                        updateNotification(_snoreCount.value)
+                    }
+                },
+                onAudioLevel = { db ->
+                    _currentDb.value = db
+                }
+            )
+            snoreDetector = detector
+
+            runAudioLoop(detector)
+        }
+    }
+
+    private fun runAudioLoop(detector: SnoreDetector) {
+        val minBufferSize = AudioRecord.getMinBufferSize(
+            AudioConfig.SAMPLE_RATE,
+            AudioConfig.CHANNEL_CONFIG,
+            AudioConfig.AUDIO_FORMAT
+        ).coerceAtLeast(4096)
+
+        try {
+            val record = AudioRecord(
+                MediaRecorder.AudioSource.MIC,
+                AudioConfig.SAMPLE_RATE,
+                AudioConfig.CHANNEL_CONFIG,
+                AudioConfig.AUDIO_FORMAT,
+                minBufferSize * 2
+            )
+            audioRecord = record
+
+            if (record.state != AudioRecord.STATE_INITIALIZED) {
+                stopSelf()
+                return
+            }
+
+            record.startRecording()
+            val buffer = ShortArray(1024)
+
+            while (serviceScope.isActive && _isMonitoring.value) {
+                val readCount = record.read(buffer, 0, buffer.size)
+                if (readCount > 0) {
+                    detector.processAudioFrame(buffer, 0, readCount)
+                }
+            }
+        } catch (_: SecurityException) {
+        } catch (_: Exception) {
+        } finally {
+            try {
+                audioRecord?.stop()
+                audioRecord?.release()
+            } catch (_: Exception) {}
+            audioRecord = null
+        }
+    }
+
+    private fun stopMonitoring() {
+        _isMonitoring.value = false
+        snoreDetector?.stopAndFlush()
+        snoreDetector = null
+
+        yamnetClassifier?.close()
+        yamnetClassifier = null
+
+        recordingJob?.cancel()
+        recordingJob = null
+
+        val sessionId = _currentSessionId.value
+        if (sessionId != null) {
+            serviceScope.launch {
+                SnoreRecApp.instance.repository.finishSession(sessionId)
+            }
+        }
+        _currentSessionId.value = null
+        _currentDb.value = 20f
+
+        wakeLock?.let {
+            if (it.isHeld) it.release()
+        }
+        wakeLock = null
+
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
+    override fun onDestroy() {
+        stopMonitoring()
+        super.onDestroy()
+    }
+
+    private fun buildNotification(snoreCount: Int): Notification {
+        val openAppIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val openAppPendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            openAppIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val stopIntent = Intent(this, SnoreMonitoringService::class.java).apply {
+            action = ACTION_STOP
+        }
+        val stopPendingIntent = PendingIntent.getService(
+            this,
+            1,
+            stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val contentText = if (snoreCount > 0) {
+            "$snoreCount Schnarch-Ereignisse aufgezeichnet"
+        } else {
+            getString(R.string.notification_monitoring_text)
+        }
+
+        return NotificationCompat.Builder(this, SnoreRecApp.CHANNEL_ID_MONITORING)
+            .setContentTitle(getString(R.string.notification_monitoring_title))
+            .setContentText(contentText)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentIntent(openAppPendingIntent)
+            .addAction(
+                android.R.drawable.ic_media_pause,
+                getString(R.string.notification_action_stop),
+                stopPendingIntent
+            )
+            .setOngoing(true)
+            .build()
+    }
+
+    private fun updateNotification(snoreCount: Int) {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+        notificationManager.notify(NOTIFICATION_ID, buildNotification(snoreCount))
+    }
+
+    companion object {
+        const val ACTION_START = "de.carcophan.snorerec.START"
+        const val ACTION_STOP = "de.carcophan.snorerec.STOP"
+        private const val NOTIFICATION_ID = 1001
+
+        private val _isMonitoring = MutableStateFlow(false)
+        val isMonitoring: StateFlow<Boolean> = _isMonitoring.asStateFlow()
+
+        private val _currentSessionId = MutableStateFlow<Long?>(null)
+        val currentSessionId: StateFlow<Long?> = _currentSessionId.asStateFlow()
+
+        private val _currentDb = MutableStateFlow(20f)
+        val currentDb: StateFlow<Float> = _currentDb.asStateFlow()
+
+        private val _snoreCount = MutableStateFlow(0)
+        val snoreCount: StateFlow<Int> = _snoreCount.asStateFlow()
+
+        fun start(context: Context) {
+            val intent = Intent(context, SnoreMonitoringService::class.java).apply {
+                action = ACTION_START
+            }
+            ContextCompat.startForegroundService(context, intent)
+        }
+
+        fun stop(context: Context) {
+            val intent = Intent(context, SnoreMonitoringService::class.java).apply {
+                action = ACTION_STOP
+            }
+            context.startService(intent)
+        }
+    }
+}

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Slumbering Crescent Moon -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M47,26 C34,26 24,38 24,54 C24,70 34,82 47,82 C37,77 37,66 37,54 C37,42 37,31 47,26 Z" />
+
+    <!-- Sparkle Star near moon peak -->
+    <path
+        android:fillColor="#CCFFFFFF"
+        android:pathData="M32,24 L33.2,27.5 L36.5,28.5 L33.2,29.5 L32,33 L30.8,29.5 L27.5,28.5 L30.8,27.5 Z" />
+
+    <!-- Sound Wave Equalizer Bars -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M47.9,46 a2.1,2.1 0 0,1 4.2,0 v16 a2.1,2.1 0 0,1 -4.2,0 z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M55.4,37 a2.1,2.1 0 0,1 4.2,0 v34 a2.1,2.1 0 0,1 -4.2,0 z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M62.9,29 a2.1,2.1 0 0,1 4.2,0 v50 a2.1,2.1 0 0,1 -4.2,0 z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M70.4,38 a2.1,2.1 0 0,1 4.2,0 v32 a2.1,2.1 0 0,1 -4.2,0 z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M77.9,47 a2.1,2.1 0 0,1 4.2,0 v14 a2.1,2.1 0 0,1 -4.2,0 z" />
+
+    <!-- REC Dot -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M72.7,25.5 a2.8,2.8 0 1,0 5.6,0 a2.8,2.8 0 1,0 -5.6,0 z" />
+</vector>

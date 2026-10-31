@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">SnoreRec</string>
+    <string name="notification_channel_monitoring_name">Schnarchüberwachung</string>
+    <string name="notification_channel_monitoring_desc">Zeigt an, dass die Schnarchüberwachung nachts aktiv ist.</string>
+    <string name="notification_monitoring_title">Schnarcherkennung aktiv</string>
+    <string name="notification_monitoring_text">Dein Schlaf wird überwacht. Schnarchen wird automatisch aufgezeichnet.</string>
+    <string name="notification_action_stop">Aufnahme beenden</string>
+</resources>
