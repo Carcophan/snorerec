@@ -1,32 +1,25 @@
-# SnoreRec 🌙💤
+# SnoreRec 🌙💤 (SnoreLab Local Edition)
 
-**SnoreRec** ist eine intelligente, datenschutzorientierte Android-App zur nächtlichen Schnarchüberwachung, Schlafanalyse und automatischen Audioaufzeichnung von Schnarchereignissen.
+**SnoreRec** ist eine vollständige, datenschutzorientierte Android-App zur nächtlichen Schnarchüberwachung, Schlafanalyse und automatischen Audioaufzeichnung im Look & Feel von **SnoreLab** – entwickelt für den **ausschließlich privaten Gebrauch (100% lokal auf dem Gerät, ohne Firebase oder Cloud-Anbindung)**.
 
-Dank **On-Device Machine Learning (Google AI Edge LiteRT & YAMNet)** und Pegelanalyse erkennt die App Schnarchgeräusche zuverlässig in Echtzeit, speichert sie platzsparend als AAC-Audiodateien ab und stellt detaillierte Auswertungen für jede Nacht bereit – **100% lokal, ohne Cloud-Übertragung**.
+Dank **On-Device Machine Learning (Google AI Edge LiteRT & YAMNet)** und Pegelanalyse erkennt die App Schnarchgeräusche zuverlässig in Echtzeit, berechnet den **Schnarch-Score (Snore Score)**, analysiert die Wirksamkeit von **Hilfsmitteln (Remedies)** sowie **Lebensstil-Faktoren (Factors)** und speichert Audioaufnahmen platzsparend als AAC-Dateien (`.m4a`).
 
 ---
 
-## ✨ Hauptfunktionen
+## ✨ Hauptfunktionen (SnoreLab Feature-Set)
 
-- 🎙️ **Intelligente Schnarcherkennung:**
-  - **Zweistufige Erkennung:** Kombination aus schneller Dezibel- & Frequenzband-Analyse (80–700 Hz) sowie On-Device KI-Klassifizierung mit **YAMNet** (via Google AI Edge LiteRT).
-  - Filtert Stör- und Umgebungsgeräusche zuverlässig heraus, um Fehlalarme zu minimieren.
-- ⏱️ **Pre-Roll Ringpuffer (2,5 s):**
-  - Ein kontinuierlicher Ringpuffer im Arbeitsspeicher garantiert, dass auch der Beginn eines Schnarchers vollständig aufgenommen wird.
-- 💾 **Platzsparende AAC-Codierung:**
-  - Direkte Hardware-Kompression über Android `MediaCodec` in `.m4a` (AAC) spart ca. 85–90% Speicherplatz gegenüber unkomprimiertem WAV.
-- 📊 **Schlafanalyse & Mustererkennung:**
-  - **Interaktiver Timeline-Chart:** Schnarchereignisse über den Verlauf der gesamten Nacht mit Pegel- und Zeitpunkten. Durch Antippen kann die zugehörige Aufnahme direkt abgespielt werden.
-  - **Detaillierte Metriken:** Gesamte Schnarchdauer, prozentualer Schnarchanteil an der Schlafzeit, Schnarchfrequenz pro Stunde und Spitzen-/Durchschnittslautstärke in dB.
-  - **Intensitäts-Einteilung:** Kategorisierung in *Leicht* (< 48 dB), *Mäßig* (48–62 dB) und *Laut* (≥ 62 dB) sowie stündliche Balkendiagramme.
-- 🎧 **Integrierter Audio-Player:**
-  - Schnarchereignisse anhören mit Zeitanzeige und Fortschrittsbalken.
-- 🔋 **Zuverlässige Nachtüberwachung:**
-  - Läuft als stabiler Foreground Service (`FOREGROUND_SERVICE_MICROPHONE`) mit partieller WakeLock-Absicherung, um auch bei gesperrtem Bildschirm die ganze Nacht aktiv zu bleiben.
-- 🔒 **100% Privatsphäre & Datenschutz:**
-  - Sämtliche Audioverarbeitung und KI-Inferenz läuft lokal auf dem Smartphone. Keine Sprach- oder Tondaten werden an externe Server übertragen.
-- 🧹 **Automatischer Speicher-Cleanup:**
-  - Automatische Bereinigung alter Audioaufnahmen (standardmäßig nach 14 Tagen), um Gerätespeicher zu schonen.
+- 🌙 **Authentisches SnoreLab Midnight-Navy UI mit 5 Haupt-Tabs:**
+  - **1. Aufzeichnen:** Großer animierter Start-Ring, Konfigurationskarten vor dem Schlafen (Verzögerter Start, Einschlafgeräusche, Smart-Wecker, Hilfsmittel & Faktoren) sowie Nacht-Überwachungsbildschirm mit Digitaluhr und Live-Spektrum.
+  - **2. Ergebnisse:** Horizontale Nacht-Auswahlleiste mit Schnarch-Score-Badges, großer **Schnarch-Score-Ring**, interaktives **4-Stufen-Nachtdiagramm (*Ruhe*, *Leicht*, *Laut*, *Episch*)** mit Inline-Player, Favoriten-Sternen (⭐), Schlafqualitäts-Bewertung (1–5 Sterne) und Notizen.
+  - **3. Trends:** Mehrnächtige Verlaufsdiagramme (7, 30, 90, Alle Nächte), Durchschnittswerte, **Hilfsmittel-Wirksamkeitsanalyse** (prozentuale Score-Reduktion gegenüber Nächten ohne Hilfsmittel) und **Faktoren-Einflussanalyse**.
+  - **4. Hilfsmittel & Ratgeber:** Verwaltung vordefinierter und eigener Hilfsmittel (Seitenschlaf, Nasenpflaster, Nasenspray, Mundpflaster, Schnarchschiene, Keilkissen, Luftbefeuchter, CPAP u.v.m.) & Faktoren (Alkohol, Rückenschlaf, Erkältung, Übermüdung, Spätes Essen) inklusive integriertem Schnarch-Wissensratgeber.
+  - **5. Profil & Einstellungen:** Mikrofon-Empfindlichkeitskalibrierung (`-8 dB` bis `+8 dB`), Aufnahmemodus-Wahl, Speicherplatz-Anzeige mit automatischem Cleanup (Favoriten ⭐ sind geschützt), lokales Schlafprofil mit BMI-Rechner, **CSV-Export** und **Demo-Daten-Generator (10 Beispiel-Nächte)**.
+- 🌊 **Prozedurale Einschlafgeräusche (Sleep Sounds):**
+  - Direkt in Echtzeit über `AudioTrack` synthetisierte Einschlafklänge (*Sanfter Nachtregen*, *Meereswellen*, *Warmes Rosa Rauschen*, *Nachtwind im Wald*, *Tiefer 110-Hz-Schlafklang*) mit sanftem Fade-Out vor Überwachungsbeginn.
+- ⏰ **Verzögerter Start & Smart-Wecker:**
+  - Frei wählbarer Einschlaftimer (Sofort bis 60 Min., jederzeit überspringbar) sowie optionaler Aufwach-Wecker mit Smart-Wakeup-Zeitfenster.
+- 🔒 **100% Lokal & Privat (Kein Firebase / Keine Cloud):**
+  - Sämtliche Daten liegen ausschließlich in der lokalen SQLite-Datenbank (`snore_rec.db`) und den lokalen `SharedPreferences`.
 
 ---
 
@@ -35,68 +28,18 @@ Dank **On-Device Machine Learning (Google AI Edge LiteRT & YAMNet)** und Pegelan
 | Komponente | Technologie |
 |---|---|
 | **Programmiersprache** | [Kotlin](https://kotlinlang.org/) (2.2.x) |
-| **UI-Framework** | [Jetpack Compose](https://developer.android.com/jetpack/compose) mit Material 3 |
+| **UI-Framework** | [Jetpack Compose](https://developer.android.com/jetpack/compose) mit Material 3 (SnoreLab Midnight Navy Theme) |
 | **KI / Audio-Inferenz** | [Google AI Edge LiteRT](https://ai.google.dev/edge/litert) (v2.3.2) & YAMNet TFLite |
-| **Audio-Pipeline** | Android `AudioRecord` (16 kHz Mono PCM), Custom `RingBuffer`, Low-Pass Filter |
-| **Audio-Encoding** | Hardware-beschleunigtes `MediaCodec` + `MediaMuxer` (AAC / .m4a) & WAV-Fallback |
-| **Hintergrunddienst** | Android Foreground Service + Coroutines / Kotlin Flow |
-| **Datenbank** | Lokale SQLite-Datenbank (`SQLiteOpenHelper`) für Sessions und Events |
-| **Build-System** | Gradle 9.x, Android Gradle Plugin (AGP) 9.5.0 |
-| **Zielplattform** | `minSdk` 26 (Android 8.0) bis `targetSdk` 36 / `compileSdk` 37 |
-
----
-
-## 📁 Projektstruktur
-
-```
-SnoreRec/
-├── app/
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── assets/
-│   │   │   │   ├── yamnet.tflite                # Pre-trained AudioNet Modell
-│   │   │   │   └── yamnet_label_list.txt        # Klassen-Labels (u.a. Snoring, Snort)
-│   │   │   ├── java/de/carcophan/snorerec/
-│   │   │   │   ├── audio/
-│   │   │   │   │   ├── AacAudioWriter.kt        # AAC (.m4a) Hardware-Encoder
-│   │   │   │   │   ├── AudioConfig.kt           # Samplerate, Schwellenwerte, Puffergrößen
-│   │   │   │   │   ├── AudioPlayer.kt           # MediaPlayer für Wiedergabe
-│   │   │   │   │   ├── RingBuffer.kt            # Thread-sicherer Ringspeicher für Pre-Roll
-│   │   │   │   │   ├── SnoreDetector.kt         # Zustandsmaschine, RMS/dB & Trigger
-│   │   │   │   │   ├── WavAudioWriter.kt        # WAV-Dateischreiber (Fallback/Debug)
-│   │   │   │   │   └── YamnetClassifier.kt      # LiteRT On-Device Inferenz
-│   │   │   │   ├── data/
-│   │   │   │   │   ├── db/SnoreDatabase.kt      # SQLite Tabellen für Sessions & Events
-│   │   │   │   │   ├── model/                   # NightSession, SnoreEvent, SnoreIntensity
-│   │   │   │   │   └── repository/              # SnoreRepository
-│   │   │   │   ├── service/
-│   │   │   │   │   └── SnoreMonitoringService.kt# Foreground Service für Nachtüberwachung
-│   │   │   │   └── ui/
-│   │   │   │       ├── components/              # LiveMonitoringCard, TimelineChart, PatternView
-│   │   │   │       ├── MainViewModel.kt         # StateFlows, Berechnungen, Steuerung
-│   │   │   │       ├── SnoreAppScreen.kt        # Haupt-Screen mit Tabs & Steuerung
-│   │   │   │       └── theme/                   # Material 3 Farbpalette & Typografie
-│   │   │   └── AndroidManifest.xml
-│   │   └── test/                                # Unit-Tests für RingBuffer, Math & Modelle
-│   └── build.gradle.kts
-├── build_and_install.sh                         # Schnelles Build- & Installationsskript
-└── gradle/libs.versions.toml                    # Version Catalog
-```
+| **Audio-Pipeline** | Android `AudioRecord` (16 kHz Mono PCM), Custom `RingBuffer`, `AudioTrack` Sleep Sound Synthesizer |
+| **Audio-Encoding** | Hardware-beschleunigtes `MediaCodec` + `MediaMuxer` (AAC / `.m4a`) & WAV-Fallback |
+| **Hintergrunddienst** | Android Foreground Service (`FOREGROUND_SERVICE_MICROPHONE`) + Coroutines / Kotlin StateFlow |
+| **Datenbank & Settings** | 100% lokale SQLite-Datenbank (`SQLiteOpenHelper` v2) & lokale `SharedPreferences` |
 
 ---
 
 ## 🚀 Bauen und Ausführen
 
-### Voraussetzungen
-
-- **Android Studio** (Ladybug / Meerkat oder neuer empfohlen)
-- **JDK 11** oder höher
-- Android-Gerät oder Emulator mit mindestens **Android 8.0 (API Level 26)**
-- Für Tests auf physischem Gerät: Aktiviertes **USB-Debugging**
-
 ### Schnellstart über Skript (Linux / macOS)
-
-Das Projekt enthält ein bequemes Skript zum automatischen Kompilieren, Installieren und Starten auf einem angeschlossenen Android-Gerät:
 
 ```bash
 chmod +x build_and_install.sh
@@ -109,49 +52,13 @@ chmod +x build_and_install.sh
   ```bash
   ./gradlew assembleDebug
   ```
-
-- **Release-Build bauen:**
-  ```bash
-  ./gradlew assembleRelease
-  ```
-
 - **Unit-Tests ausführen:**
   ```bash
-  ./gradlew test
+  ./gradlew testDebugUnitTest
   ```
-
----
-
-## 🔐 Benötigte Berechtigungen
-
-Die App benötigt folgende Android-Berechtigungen:
-
-| Berechtigung | Zweck |
-|---|---|
-| `RECORD_AUDIO` | Zugriff auf das Mikrofon zur Erfassung der Umgebungsgeräusche während der Schlafphase. |
-| `FOREGROUND_SERVICE` & `FOREGROUND_SERVICE_MICROPHONE` | Ermöglicht die kontinuierliche Audioüberwachung im Hintergrund während der Nacht. |
-| `POST_NOTIFICATIONS` | Anzeige einer persistenten Benachrichtigung mit aktuellem Status und Schnarch-Zähler. |
-| `WAKE_LOCK` | Verhindert, dass das Betriebssystem die Audioverarbeitung im Standby/Deep-Sleep pausiert. |
-
----
-
-## 📈 Erkennungsparameter & Tuning
-
-Zentrale Schwellenwerte können in [`AudioConfig.kt`](app/src/main/java/de/carcophan/snorerec/audio/AudioConfig.kt) angepasst werden:
-
-```kotlin
-const val SAMPLE_RATE = 16000                // 16 kHz für YAMNet-Kompatibilität
-const val PRE_ROLL_SECONDS = 2.5f            // Puffergröße vor erkanntem Schnarchen
-const val SNORE_MIN_DB = 42.0f               // Mindestpegel für Detektion
-const val SNORE_MIN_DURATION_MS = 600L       // Minimale Dauer eines Schnarchers
-const val SNORE_POST_SILENCE_MS = 1500L      // Nachlaufzeit nach dem letzten Schnarcher einer Sequenz
-const val SNORE_SEQUENCE_GAP_MS = 20000L     // Max. Atempause (20 s), innerhalb derer Schnarcher zu einer Sequenz verbunden werden
-const val SNORE_MAX_EVENT_DURATION_MS = 300000L // Maximale Cliplänge einer Schnarchsequenz (5 Minuten)
-const val YAMNET_SNORE_THRESHOLD = 0.15f     // Konfidenz-Schwelle des ML-Modells
-```
 
 ---
 
 ## 📄 Lizenz
 
-Dieses Projekt ist privat / lizenziert nach Absprache. Alle Rechte vorbehalten.
+Ausschließlich für den privaten Gebrauch. Alle Rechte vorbehalten.

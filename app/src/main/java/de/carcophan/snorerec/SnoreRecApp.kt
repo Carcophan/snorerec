@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import de.carcophan.snorerec.data.db.SnoreDatabase
+import de.carcophan.snorerec.data.preferences.SnorePreferences
 import de.carcophan.snorerec.data.repository.SnoreRepository
 
 class SnoreRecApp : Application() {
@@ -16,11 +17,15 @@ class SnoreRecApp : Application() {
     lateinit var repository: SnoreRepository
         private set
 
+    lateinit var preferences: SnorePreferences
+        private set
+
     override fun onCreate() {
         super.onCreate()
         instance = this
         database = SnoreDatabase(this)
         repository = SnoreRepository(database)
+        preferences = SnorePreferences(this)
 
         createNotificationChannels()
     }

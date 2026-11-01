@@ -1,9 +1,9 @@
 package de.carcophan.snorerec.data.model
 
-enum class SnoreIntensity(val label: String, val minDb: Float) {
-    MILD("Leicht", 0f),
-    MODERATE("Mäßig", 48f),
-    HEAVY("Laut", 62f);
+enum class SnoreIntensity(val label: String, val snoreLabLabel: String, val minDb: Float, val scoreWeight: Float) {
+    MILD("Leicht", "Leicht", 0f, 1.0f),
+    MODERATE("Mäßig", "Laut", 48f, 2.2f),
+    HEAVY("Laut", "Episch", 62f, 3.8f);
 
     companion object {
         fun fromDb(db: Float): SnoreIntensity = when {
@@ -22,7 +22,8 @@ data class SnoreEvent(
     val peakDb: Float,
     val avgDb: Float,
     val audioFilePath: String? = null,
-    val snoreScore: Float = 0f
+    val snoreScore: Float = 0f,
+    val isBookmarked: Boolean = false
 ) {
     val intensity: SnoreIntensity
         get() = SnoreIntensity.fromDb(peakDb)

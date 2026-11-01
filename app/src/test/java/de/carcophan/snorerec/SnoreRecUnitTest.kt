@@ -166,4 +166,33 @@ class SnoreRecUnitTest {
         // (and NOT 16.5s + 21s = 37.5s, because trailing silence after post-roll is discarded)
         assertTrue("Expected duration around 18s, got ${event.durationMs}ms", event.durationMs in 17000L..19000L)
     }
+
+    @Test
+    fun snoreScore_weightsIntensityLevelsLikeSnoreLab() {
+        val eightHoursMs = 8 * 3600 * 1000L
+        val oneHourMs = 3600 * 1000L
+
+        val mildScore = NightSession.computeSnoreScore(
+            totalSleepMs = eightHoursMs,
+            totalSnoreMs = oneHourMs,
+            mildMs = oneHourMs,
+            moderateMs = 0L,
+            heavyMs = 0L,
+            avgDb = 45f,
+            peakDb = 47f
+        )
+
+        val epicScore = NightSession.computeSnoreScore(
+            totalSleepMs = eightHoursMs,
+            totalSnoreMs = oneHourMs,
+            mildMs = 0L,
+            moderateMs = 0L,
+            heavyMs = oneHourMs,
+            avgDb = 66f,
+            peakDb = 72f
+        )
+
+        assertTrue("Mild score ($mildScore) should be > 0", mildScore > 0)
+        assertTrue("Epic score ($epicScore) must be significantly higher than mild score ($mildScore)", epicScore > mildScore * 3)
+    }
 }

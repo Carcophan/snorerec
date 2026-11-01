@@ -45,11 +45,13 @@ echo "==> 3. Release APK bauen..."
 if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/jlink" ]; then
     if [ -x "/home/joachim/programme/android-studio/jbr/bin/jlink" ]; then
         export JAVA_HOME="/home/joachim/programme/android-studio/jbr"
+    elif [ -x "/usr/lib/jvm/java-25-openjdk-amd64/bin/jlink" ]; then
+        export JAVA_HOME="/usr/lib/jvm/java-25-openjdk-amd64"
     elif [ -x "/usr/lib/jvm/java-1.25.0-openjdk-amd64/bin/jlink" ]; then
         export JAVA_HOME="/usr/lib/jvm/java-1.25.0-openjdk-amd64"
     fi
 fi
-./gradlew assembleRelease
+./gradlew -Dorg.gradle.java.home="$JAVA_HOME" assembleRelease
 
 APK_PATH="app/build/outputs/apk/release/app-release.apk"
 if [ ! -f "$APK_PATH" ]; then

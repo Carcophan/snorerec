@@ -5,11 +5,21 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,30 +31,49 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.automirrored.filled.ShowChart
+import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Healing
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.NightsStay
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,21 +81,49 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import de.carcophan.snorerec.data.model.NightSession
+import de.carcophan.snorerec.data.model.SnoreCatalog
+import de.carcophan.snorerec.data.model.SnoreIntensity
+import de.carcophan.snorerec.data.preferences.SleepSoundType
+import de.carcophan.snorerec.data.preferences.SnoreSettingsState
 import de.carcophan.snorerec.ui.components.LiveMonitoringCard
+import de.carcophan.snorerec.ui.components.RemediesAndGuideTabView
+import de.carcophan.snorerec.ui.components.SettingsTabView
 import de.carcophan.snorerec.ui.components.SnoreEventCard
 import de.carcophan.snorerec.ui.components.SnorePatternAnalysisView
 import de.carcophan.snorerec.ui.components.SnoreTimelineChart
+import de.carcophan.snorerec.ui.components.TrendsTabView
+import de.carcophan.snorerec.ui.theme.SnoreEpicRed
+import de.carcophan.snorerec.ui.theme.SnoreLabBgDark
+import de.carcophan.snorerec.ui.theme.SnoreLabCyan
+import de.carcophan.snorerec.ui.theme.SnoreLabSurface
+import de.carcophan.snorerec.ui.theme.SnoreLabSurfaceElevated
+import de.carcophan.snorerec.ui.theme.SnoreLightYellow
+import de.carcophan.snorerec.ui.theme.SnoreLoudOrange
+import de.carcophan.snorerec.ui.theme.SnoreQuietGreen
+import de.carcophan.snorerec.ui.theme.snoreScoreColor
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+private enum class MainBottomTab(val label: String, val icon: ImageVector) {
+    RECORD("Aufzeichnen", Icons.Default.Mic),
+    RESULTS("Ergebnisse", Icons.Default.GraphicEq),
+    TRENDS("Trends", Icons.AutoMirrored.Filled.ShowChart),
+    REMEDIES("Hilfsmittel", Icons.Default.Healing),
+    SETTINGS("Profil", Icons.Default.Settings)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,21 +132,40 @@ fun SnoreAppScreen(
 ) {
     val context = LocalContext.current
 
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val storageUsage by viewModel.storageUsage.collectAsStateWithLifecycle()
+
     val isMonitoring by viewModel.isMonitoring.collectAsStateWithLifecycle()
+    val isInDelayedStart by viewModel.isInDelayedStart.collectAsStateWithLifecycle()
+    val delayedStartRemainingSeconds by viewModel.delayedStartRemainingSeconds.collectAsStateWithLifecycle()
     val currentDb by viewModel.currentDb.collectAsStateWithLifecycle()
     val liveSnoreCount by viewModel.liveSnoreCount.collectAsStateWithLifecycle()
+    val isAlarmRinging by viewModel.isAlarmRinging.collectAsStateWithLifecycle()
 
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()
     val selectedSession by viewModel.selectedSession.collectAsStateWithLifecycle()
     val events by viewModel.selectedSessionEvents.collectAsStateWithLifecycle()
     val analysis by viewModel.currentAnalysis.collectAsStateWithLifecycle()
+    val trends by viewModel.trendsAnalysis.collectAsStateWithLifecycle()
 
     val playingEventId by viewModel.playingEventId.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
     val playbackProgress by viewModel.playbackProgress.collectAsStateWithLifecycle()
 
+    val isPreviewingSleepSound by viewModel.isPreviewingSleepSound.collectAsStateWithLifecycle()
+    val previewingSoundType by viewModel.previewingSoundType.collectAsStateWithLifecycle()
+
+    var currentBottomTab by remember { mutableStateOf(MainBottomTab.RECORD) }
+    var resultsSubTab by remember { mutableIntStateOf(0) } // 0: Diagramm & Analyse, 1: Audio-Aufnahmen
+    var selectedClipFilter by remember { mutableStateOf(AudioClipFilter.ALL) }
+
+    // Dialog states
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
-    var selectedTab by remember { mutableIntStateOf(0) } // 0: Übersicht & Muster, 1: Audio-Aufnahmen
+    var showDelayedStartDialog by remember { mutableStateOf(false) }
+    var showSleepSoundDialog by remember { mutableStateOf(false) }
+    var showAlarmDialog by remember { mutableStateOf(false) }
+    var showTonightFactorsDialog by remember { mutableStateOf(false) }
+    var showEditSessionMetadataDialog by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -103,6 +179,7 @@ fun SnoreAppScreen(
     }
 
     Scaffold(
+        containerColor = SnoreLabBgDark,
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
@@ -110,18 +187,31 @@ fun SnoreAppScreen(
                         Icon(
                             imageVector = Icons.Default.NightsStay,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = SnoreLabCyan,
                             modifier = Modifier.size(24.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "SnoreRec",
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = SnoreLabCyan.copy(alpha = 0.16f)
+                        ) {
+                            Text(
+                                text = "LOCAL",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = SnoreLabCyan,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                     }
                 },
                 actions = {
-                    if (selectedSession != null) {
+                    if (currentBottomTab == MainBottomTab.RESULTS && selectedSession != null) {
                         IconButton(onClick = { showDeleteConfirmDialog = true }) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
@@ -131,10 +221,47 @@ fun SnoreAppScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = SnoreLabBgDark
                 )
             )
+        },
+        bottomBar = {
+            NavigationBar(
+                containerColor = SnoreLabSurface,
+                tonalElevation = 0.dp
+            ) {
+                MainBottomTab.entries.forEach { tab ->
+                    val selected = currentBottomTab == tab
+                    NavigationBarItem(
+                        selected = selected,
+                        onClick = {
+                            viewModel.stopPreviewSleepSound()
+                            currentBottomTab = tab
+                        },
+                        icon = {
+                            Icon(
+                                imageVector = tab.icon,
+                                contentDescription = tab.label
+                            )
+                        },
+                        label = {
+                            Text(
+                                text = tab.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = SnoreLabCyan,
+                            selectedTextColor = SnoreLabCyan,
+                            indicatorColor = SnoreLabSurfaceElevated,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
+                }
+            }
         }
     ) { innerPadding ->
         LazyColumn(
@@ -144,114 +271,252 @@ fun SnoreAppScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 1. Live Monitoring or Start Action Card
-            item {
-                if (isMonitoring) {
-                    LiveMonitoringCard(
-                        currentDb = currentDb,
-                        snoreCount = liveSnoreCount,
-                        onStopClicked = { viewModel.toggleMonitoring(context) }
-                    )
-                } else {
-                    StartMonitoringHeroCard(
-                        onStartClicked = {
-                            val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
-                            } else {
-                                arrayOf(Manifest.permission.RECORD_AUDIO)
-                            }
-                            permissionLauncher.launch(perms)
-                        }
-                    )
-                }
-            }
-
-            // 2. Session Selector (if sessions exist)
-            if (sessions.isNotEmpty()) {
-                item {
-                    SessionSelectionBar(
-                        sessions = sessions,
-                        selectedSession = selectedSession,
-                        onSelectSession = { viewModel.selectSession(it.id) }
-                    )
-                }
-            }
-
-            // 3. Selected Session Content
-            if (selectedSession != null) {
-                item {
-                    // Navigation Tabs: [Muster & Analyse] / [Aufnahmen (X)]
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceContainer),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        TabButton(
-                            text = "Muster & Analyse",
-                            selected = selectedTab == 0,
-                            onClick = { selectedTab = 0 },
-                            modifier = Modifier.weight(1f)
-                        )
-                        TabButton(
-                            text = "Aufnahmen (${events.size})",
-                            selected = selectedTab == 1,
-                            onClick = { selectedTab = 1 },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-
-                if (selectedTab == 0) {
-                    // TAB 0: Timeline Chart & Pattern Analysis
+            when (currentBottomTab) {
+                MainBottomTab.RECORD -> {
                     item {
-                        SnoreTimelineChart(
-                            session = selectedSession!!,
-                            events = events,
-                            selectedEventId = playingEventId,
-                            onEventSelected = { event ->
-                                event.audioFilePath?.let { path ->
-                                    viewModel.playAudio(event.id, path)
-                                }
-                            }
-                        )
-                    }
-
-                    if (analysis != null) {
-                        item {
-                            SnorePatternAnalysisView(analysis = analysis!!)
-                        }
-                    }
-                } else {
-                    // TAB 1: Individual recorded audio clips
-                    if (events.isEmpty()) {
-                        item {
-                            EmptyEventsCard()
-                        }
-                    } else {
-                        items(events, key = { it.id }) { event ->
-                            SnoreEventCard(
-                                event = event,
-                                isPlaying = playingEventId == event.id && isPlaying,
-                                progress = if (playingEventId == event.id) playbackProgress else 0f,
-                                onPlayToggle = {
-                                    event.audioFilePath?.let { path ->
-                                        viewModel.playAudio(event.id, path)
+                        if (isMonitoring) {
+                            LiveMonitoringCard(
+                                currentDb = currentDb,
+                                snoreCount = liveSnoreCount,
+                                onStopClicked = {
+                                    viewModel.toggleMonitoring(context)
+                                    currentBottomTab = MainBottomTab.RESULTS
+                                },
+                                isInDelayedStart = isInDelayedStart,
+                                delayedStartRemainingSeconds = delayedStartRemainingSeconds,
+                                onSkipDelayClicked = { viewModel.skipDelayedStart(context) },
+                                isAlarmRinging = isAlarmRinging,
+                                onDismissAlarmClicked = { viewModel.dismissAlarm(context) },
+                                alarmEnabled = settings.alarmEnabled,
+                                alarmHour = settings.alarmHour,
+                                alarmMinute = settings.alarmMinute,
+                                sleepSoundType = settings.sleepSoundType,
+                                selectedRemedies = settings.selectedRemedies,
+                                selectedFactors = settings.selectedFactors
+                            )
+                        } else {
+                            SnoreLabRecordSetupView(
+                                settings = settings,
+                                sessionsCount = sessions.size,
+                                latestSession = sessions.firstOrNull(),
+                                onStartRecording = {
+                                    val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
+                                    } else {
+                                        arrayOf(Manifest.permission.RECORD_AUDIO)
                                     }
+                                    permissionLauncher.launch(perms)
+                                },
+                                onOpenDelayedStart = { showDelayedStartDialog = true },
+                                onOpenSleepSounds = { showSleepSoundDialog = true },
+                                onOpenAlarm = { showAlarmDialog = true },
+                                onOpenRemediesAndFactors = { showTonightFactorsDialog = true },
+                                onOpenLatestResult = {
+                                    currentBottomTab = MainBottomTab.RESULTS
+                                },
+                                onSeedDemoClicked = {
+                                    viewModel.seedDemoSessions()
+                                    currentBottomTab = MainBottomTab.RESULTS
                                 }
                             )
                         }
                     }
                 }
-            } else if (!isMonitoring) {
-                // Empty State
-                item {
-                    EmptyHistoryHeroCard()
+
+                MainBottomTab.RESULTS -> {
+                    if (sessions.isEmpty()) {
+                        item {
+                            EmptyHistoryHeroCard(
+                                onStartClicked = { currentBottomTab = MainBottomTab.RECORD },
+                                onSeedDemoClicked = { viewModel.seedDemoSessions() }
+                            )
+                        }
+                    } else {
+                        // Horizontal Night Selector Strip (SnoreLab calendar ribbon style)
+                        item {
+                            SnoreLabNightRibbon(
+                                sessions = sessions,
+                                selectedSession = selectedSession,
+                                onSelectSession = { viewModel.selectSession(it.id) }
+                            )
+                        }
+
+                        if (selectedSession != null) {
+                            item {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceContainer),
+                                    horizontalArrangement = Arrangement.SpaceEvenly
+                                ) {
+                                    TabButton(
+                                        text = "Übersicht & Chart",
+                                        selected = resultsSubTab == 0,
+                                        onClick = { resultsSubTab = 0 },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    TabButton(
+                                        text = "Aufnahmen (${events.size})",
+                                        selected = resultsSubTab == 1,
+                                        onClick = { resultsSubTab = 1 },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+
+                            if (resultsSubTab == 0) {
+                                item {
+                                    SnoreTimelineChart(
+                                        session = selectedSession!!,
+                                        events = events,
+                                        selectedEventId = playingEventId,
+                                        isPlaying = isPlaying,
+                                        playbackProgress = playbackProgress,
+                                        onEventSelected = { event ->
+                                            event.audioFilePath?.let { path ->
+                                                viewModel.playAudio(event.id, path)
+                                            }
+                                        },
+                                        onToggleBookmark = { event ->
+                                            viewModel.toggleBookmark(event)
+                                        },
+                                        onDeleteEvent = { event ->
+                                            viewModel.deleteSnoreEvent(event.id)
+                                        }
+                                    )
+                                }
+
+                                if (analysis != null) {
+                                    item {
+                                        SnorePatternAnalysisView(
+                                            analysis = analysis!!,
+                                            session = selectedSession,
+                                            onRatingChanged = { stars ->
+                                                viewModel.updateSelectedSessionMetadata(sleepRating = stars)
+                                            },
+                                            onEditMetadataClicked = {
+                                                showEditSessionMetadataDialog = true
+                                            }
+                                        )
+                                    }
+                                }
+                            } else {
+                                // Audio Clips Filter Chips (Alle, Lauteste, Markiert, Episch, Laut, Leicht)
+                                item {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        AudioClipFilter.entries.forEach { filter ->
+                                            val selected = selectedClipFilter == filter
+                                            FilterChip(
+                                                selected = selected,
+                                                onClick = { selectedClipFilter = filter },
+                                                label = { Text(filter.label) },
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = SnoreLabCyan,
+                                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+
+                                val filteredEvents = when (selectedClipFilter) {
+                                    AudioClipFilter.ALL -> events
+                                    AudioClipFilter.LOUDEST -> events.sortedByDescending { it.peakDb }.take(15)
+                                    AudioClipFilter.BOOKMARKED -> events.filter { it.isBookmarked }
+                                    AudioClipFilter.EPIC -> events.filter { it.intensity == SnoreIntensity.HEAVY }
+                                    AudioClipFilter.LOUD -> events.filter { it.intensity == SnoreIntensity.MODERATE }
+                                    AudioClipFilter.LIGHT -> events.filter { it.intensity == SnoreIntensity.MILD }
+                                }
+
+                                if (filteredEvents.isEmpty()) {
+                                    item {
+                                        EmptyEventsCard()
+                                    }
+                                } else {
+                                    items(filteredEvents, key = { it.id }) { event ->
+                                        SnoreEventCard(
+                                            event = event,
+                                            isPlaying = playingEventId == event.id && isPlaying,
+                                            progress = if (playingEventId == event.id) playbackProgress else 0f,
+                                            onPlayToggle = {
+                                                event.audioFilePath?.let { path ->
+                                                    viewModel.playAudio(event.id, path)
+                                                }
+                                            },
+                                            onBookmarkToggle = { viewModel.toggleBookmark(event) },
+                                            onDelete = { viewModel.deleteSnoreEvent(event.id) }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                MainBottomTab.TRENDS -> {
+                    item {
+                        TrendsTabView(
+                            sessions = sessions,
+                            trends = trends,
+                            snoreScoreGoal = settings.snoreScoreGoal,
+                            onSelectNight = { session ->
+                                viewModel.selectSession(session.id)
+                                currentBottomTab = MainBottomTab.RESULTS
+                            },
+                            onSeedDemoClicked = { viewModel.seedDemoSessions() }
+                        )
+                    }
+                }
+
+                MainBottomTab.REMEDIES -> {
+                    item {
+                        RemediesAndGuideTabView(
+                            selectedRemedies = settings.selectedRemedies,
+                            selectedFactors = settings.selectedFactors,
+                            customRemedies = settings.customRemedies,
+                            customFactors = settings.customFactors,
+                            trends = trends,
+                            onToggleRemedy = { viewModel.toggleRemedyForTonight(it) },
+                            onToggleFactor = { viewModel.toggleFactorForTonight(it) },
+                            onAddCustomRemedy = { viewModel.addCustomRemedy(it) },
+                            onRemoveCustomRemedy = { viewModel.removeCustomRemedy(it) },
+                            onAddCustomFactor = { viewModel.addCustomFactor(it) },
+                            onRemoveCustomFactor = { viewModel.removeCustomFactor(it) }
+                        )
+                    }
+                }
+
+                MainBottomTab.SETTINGS -> {
+                    item {
+                        SettingsTabView(
+                            settings = settings,
+                            storageUsage = storageUsage,
+                            onSensitivityChanged = { viewModel.setSensitivityOffsetDb(it) },
+                            onRecordingModeChanged = { viewModel.setRecordingMode(it) },
+                            onRetentionDaysChanged = { viewModel.setRetentionDays(it) },
+                            onProfileChanged = { age, height, weight, goal ->
+                                viewModel.setProfile(age, height, weight, goal)
+                            },
+                            onExportCsv = { viewModel.exportCsv(context) },
+                            onSeedDemoData = {
+                                viewModel.seedDemoSessions()
+                                currentBottomTab = MainBottomTab.RESULTS
+                            },
+                            onDeleteAllData = { viewModel.deleteAllSessions() }
+                        )
+                    }
                 }
             }
         }
     }
+
+    // --- Dialogs ---
 
     if (showDeleteConfirmDialog && selectedSession != null) {
         AlertDialog(
@@ -275,161 +540,798 @@ fun SnoreAppScreen(
             }
         )
     }
+
+    if (showDelayedStartDialog) {
+        val options = listOf(0, 5, 10, 15, 20, 30, 45, 60)
+        AlertDialog(
+            onDismissRequest = { showDelayedStartDialog = false },
+            title = { Text("⏱️ Verzögerter Start") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Warte mit dem Beginn der Schnarchüberwachung, bis du eingeschlafen bist:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    options.chunked(2).forEach { rowItems ->
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            rowItems.forEach { min ->
+                                val selected = settings.delayedStartMinutes == min
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (selected) SnoreLabCyan else SnoreLabSurfaceElevated,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable {
+                                            viewModel.setDelayedStartMinutes(min)
+                                            showDelayedStartDialog = false
+                                        }
+                                ) {
+                                    Text(
+                                        text = if (min == 0) "Sofort" else "$min Min.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(vertical = 12.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDelayedStartDialog = false }) {
+                    Text("Schließen")
+                }
+            }
+        )
+    }
+
+    if (showSleepSoundDialog) {
+        var selectedType by remember(settings.sleepSoundType) { mutableStateOf(settings.sleepSoundType) }
+        var selectedDur by remember(settings.sleepSoundDurationMinutes) { mutableIntStateOf(settings.sleepSoundDurationMinutes) }
+        var selectedVol by remember(settings.sleepSoundVolume) { mutableFloatStateOf(settings.sleepSoundVolume) }
+
+        AlertDialog(
+            onDismissRequest = {
+                viewModel.stopPreviewSleepSound()
+                showSleepSoundDialog = false
+            },
+            title = { Text("🌊 Einschlafgeräusche") },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Spielt während des verzögerten Starts beruhigende Klänge ab und blendet sie vor Beginn der Aufnahme sanft aus.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    SleepSoundType.entries.forEach { sound ->
+                        val isSelected = selectedType == sound
+                        val isThisPlaying = isPreviewingSleepSound && previewingSoundType == sound
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isSelected) SnoreLabSurfaceElevated else MaterialTheme.colorScheme.surfaceContainer,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    selectedType = sound
+                                    viewModel.setSleepSound(sound, selectedDur, selectedVol)
+                                    if (sound == SleepSoundType.NONE) {
+                                        viewModel.stopPreviewSleepSound()
+                                    }
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                    Text(sound.iconEmoji, fontSize = 20.sp)
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = sound.title,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) SnoreLabCyan else MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = sound.subtitle,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                if (sound != SleepSoundType.NONE) {
+                                    IconButton(
+                                        onClick = {
+                                            selectedType = sound
+                                            viewModel.setSleepSound(sound, selectedDur, selectedVol)
+                                            viewModel.togglePreviewSleepSound(sound, selectedVol)
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isThisPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                            contentDescription = "Vorschau",
+                                            tint = SnoreLabCyan
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (selectedType != SleepSoundType.NONE) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Lautstärke: ${(selectedVol * 100).toInt()}%", style = MaterialTheme.typography.labelMedium)
+                        Slider(
+                            value = selectedVol,
+                            onValueChange = {
+                                selectedVol = it
+                                viewModel.setSleepSound(selectedType, selectedDur, it)
+                            },
+                            valueRange = 0.1f..1.0f
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.stopPreviewSleepSound()
+                        if (selectedType != SleepSoundType.NONE && settings.delayedStartMinutes == 0) {
+                            viewModel.setDelayedStartMinutes(15)
+                        }
+                        showSleepSoundDialog = false
+                    }
+                ) {
+                    Text("Fertig")
+                }
+            }
+        )
+    }
+
+    if (showAlarmDialog) {
+        var enabled by remember(settings.alarmEnabled) { mutableStateOf(settings.alarmEnabled) }
+        var hour by remember(settings.alarmHour) { mutableIntStateOf(settings.alarmHour) }
+        var minute by remember(settings.alarmMinute) { mutableIntStateOf(settings.alarmMinute) }
+        var smartWin by remember(settings.smartAlarmWindowMinutes) { mutableIntStateOf(settings.smartAlarmWindowMinutes) }
+
+        AlertDialog(
+            onDismissRequest = { showAlarmDialog = false },
+            title = { Text("⏰ Wecker & Smart-Alarm") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Wecker aktivieren", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                        Switch(checked = enabled, onCheckedChange = { enabled = it })
+                    }
+
+                    Text(
+                        text = String.format(Locale.getDefault(), "Weckzeit: %02d:%02d Uhr", hour, minute),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = SnoreLabCyan,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Text("Stunde: $hour", style = MaterialTheme.typography.labelSmall)
+                    Slider(
+                        value = hour.toFloat(),
+                        onValueChange = { hour = it.toInt() },
+                        valueRange = 0f..23f,
+                        steps = 22
+                    )
+
+                    Text("Minute: ${String.format(Locale.getDefault(), "%02d", minute)}", style = MaterialTheme.typography.labelSmall)
+                    Slider(
+                        value = minute.toFloat(),
+                        onValueChange = { minute = (it.toInt() / 5) * 5 },
+                        valueRange = 0f..55f,
+                        steps = 10
+                    )
+
+                    Text(
+                        text = "Smart-Wakeup-Fenster: ${if (smartWin == 0) "Aus (Exakt)" else "$smartWin Min. vorher bei leichtem Schlaf"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(0, 10, 15, 30).forEach { w ->
+                            FilterChip(
+                                selected = smartWin == w,
+                                onClick = { smartWin = w },
+                                label = { Text(if (w == 0) "Exakt" else "${w}m") }
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.setAlarm(enabled, hour, minute, smartWin, true)
+                        showAlarmDialog = false
+                    }
+                ) {
+                    Text("Speichern")
+                }
+            }
+        )
+    }
+
+    if (showTonightFactorsDialog) {
+        TonightRemediesAndFactorsDialog(
+            selectedRemedies = settings.selectedRemedies,
+            selectedFactors = settings.selectedFactors,
+            customRemedies = settings.customRemedies,
+            customFactors = settings.customFactors,
+            onToggleRemedy = { viewModel.toggleRemedyForTonight(it) },
+            onToggleFactor = { viewModel.toggleFactorForTonight(it) },
+            onDismiss = { showTonightFactorsDialog = false }
+        )
+    }
+
+    if (showEditSessionMetadataDialog && selectedSession != null) {
+        val sess = selectedSession!!
+        var editedRemedies by remember(sess.id) { mutableStateOf(sess.remedies.toSet()) }
+        var editedFactors by remember(sess.id) { mutableStateOf(sess.factors.toSet()) }
+        var editedNote by remember(sess.id) { mutableStateOf(sess.note) }
+
+        AlertDialog(
+            onDismissRequest = { showEditSessionMetadataDialog = false },
+            title = { Text("Nacht-Details bearbeiten") },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedTextField(
+                        value = editedNote,
+                        onValueChange = { editedNote = it },
+                        label = { Text("Persönliche Notiz zur Nacht") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Text("Verwendete Hilfsmittel:", style = MaterialTheme.typography.labelLarge, color = SnoreQuietGreen)
+                    @OptIn(ExperimentalLayoutApi::class)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        (settings.customRemedies.map { SnoreCatalog.findRemedy(it) } + SnoreCatalog.defaultRemedies).forEach { r ->
+                            val sel = editedRemedies.contains(r.name)
+                            FilterChip(
+                                selected = sel,
+                                onClick = {
+                                    editedRemedies = if (sel) editedRemedies - r.name else editedRemedies + r.name
+                                },
+                                label = { Text("${r.iconEmoji} ${r.name}") }
+                            )
+                        }
+                    }
+
+                    Text("Einfluss-Faktoren:", style = MaterialTheme.typography.labelLarge, color = SnoreLoudOrange)
+                    @OptIn(ExperimentalLayoutApi::class)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        (settings.customFactors.map { SnoreCatalog.findFactor(it) } + SnoreCatalog.defaultFactors).forEach { f ->
+                            val sel = editedFactors.contains(f.name)
+                            FilterChip(
+                                selected = sel,
+                                onClick = {
+                                    editedFactors = if (sel) editedFactors - f.name else editedFactors + f.name
+                                },
+                                label = { Text("${f.iconEmoji} ${f.name}") }
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.updateSelectedSessionMetadata(
+                            remedies = editedRemedies.toList(),
+                            factors = editedFactors.toList(),
+                            note = editedNote
+                        )
+                        showEditSessionMetadataDialog = false
+                    }
+                ) {
+                    Text("Speichern")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditSessionMetadataDialog = false }) {
+                    Text("Abbrechen")
+                }
+            }
+        )
+    }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun StartMonitoringHeroCard(
-    onStartClicked: () -> Unit
+private fun SnoreLabRecordSetupView(
+    settings: SnoreSettingsState,
+    sessionsCount: Int,
+    latestSession: NightSession?,
+    onStartRecording: () -> Unit,
+    onOpenDelayedStart: () -> Unit,
+    onOpenSleepSounds: () -> Unit,
+    onOpenAlarm: () -> Unit,
+    onOpenRemediesAndFactors: () -> Unit,
+    onOpenLatestResult: () -> Unit,
+    onSeedDemoClicked: () -> Unit
 ) {
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    val infiniteTransition = rememberInfiniteTransition(label = "startGlow")
+    val ringScale by infiniteTransition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "ringScale"
+    )
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(
-            modifier = Modifier.padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        // 1. SnoreLab Centerpiece Circular START Card
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(RoundedCornerShape(32.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(
-                    imageVector = Icons.Default.Bedtime,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(36.dp)
+                Text(
+                    text = "Bereit für heute Nacht",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Glowing Circular SnoreLab START Button
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.size(176.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(172.dp)
+                            .scale(ringScale)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        SnoreQuietGreen.copy(alpha = 0.28f),
+                                        SnoreLabCyan.copy(alpha = 0.05f),
+                                        Color.Transparent
+                                    )
+                                )
+                            )
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(138.dp)
+                            .clip(CircleShape)
+                            .border(3.dp, SnoreQuietGreen, CircleShape)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color(0xFF153E35),
+                                        Color(0xFF0E292B)
+                                    )
+                                )
+                            )
+                            .clickable(onClick = onStartRecording),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.Mic,
+                                contentDescription = null,
+                                tint = SnoreQuietGreen,
+                                modifier = Modifier.size(38.dp)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "START",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White,
+                                letterSpacing = 1.5.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Lege das Smartphone mit dem Display nach unten neben dein Bett und schließe es ans Ladegerät an.",
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        }
 
-            Spacer(modifier = Modifier.height(16.dp))
+        // 2. SnoreLab Pre-Sleep Options List (Verzögerter Start, Einschlafgeräusche, Wecker, Hilfsmittel & Faktoren)
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                SetupOptionRow(
+                    icon = Icons.Default.Timer,
+                    iconTint = SnoreLabCyan,
+                    title = "Verzögerter Start",
+                    valueText = if (settings.delayedStartMinutes == 0) "Sofort" else "${settings.delayedStartMinutes} Min.",
+                    onClick = onOpenDelayedStart
+                )
+                SetupOptionRow(
+                    icon = Icons.Default.MusicNote,
+                    iconTint = SnoreLightYellow,
+                    title = "Einschlafgeräusche",
+                    valueText = if (settings.sleepSoundType == SleepSoundType.NONE) "Aus" else "${settings.sleepSoundType.iconEmoji} ${settings.sleepSoundType.title}",
+                    onClick = onOpenSleepSounds
+                )
+                SetupOptionRow(
+                    icon = Icons.Default.Alarm,
+                    iconTint = SnoreQuietGreen,
+                    title = "Aufwach-Wecker",
+                    valueText = if (settings.alarmEnabled) {
+                        String.format(Locale.getDefault(), "%02d:%02d Uhr", settings.alarmHour, settings.alarmMinute)
+                    } else {
+                        "Aus"
+                    },
+                    onClick = onOpenAlarm
+                )
+                SetupOptionRow(
+                    icon = Icons.Default.Healing,
+                    iconTint = SnoreLoudOrange,
+                    title = "Hilfsmittel & Faktoren heute Nacht",
+                    valueText = "${settings.selectedRemedies.size + settings.selectedFactors.size} gewählt",
+                    onClick = onOpenRemediesAndFactors
+                )
 
-            Text(
-                text = "Schlafaufzeichnung starten",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+                if (settings.selectedRemedies.isNotEmpty() || settings.selectedFactors.isNotEmpty()) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        settings.selectedRemedies.forEach { r ->
+                            val item = SnoreCatalog.findRemedy(r)
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = SnoreQuietGreen.copy(alpha = 0.16f)
+                            ) {
+                                Text(
+                                    text = "${item.iconEmoji} ${item.name}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = SnoreQuietGreen,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                        settings.selectedFactors.forEach { f ->
+                            val item = SnoreCatalog.findFactor(f)
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = SnoreLoudOrange.copy(alpha = 0.16f)
+                            ) {
+                                Text(
+                                    text = "${item.iconEmoji} ${item.name}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = SnoreLoudOrange,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = "Überwacht Schnarchgeräusche die ganze Nacht im Hintergrund. Erkennt Schnarchen, misst Intensität und speichert Audio-Ausschnitte.",
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Button(
-                onClick = onStartClicked,
-                shape = RoundedCornerShape(14.dp),
+        // 3. Last Night Quick Preview or Demo Data Card
+        if (latestSession != null) {
+            val dateFormat = remember { SimpleDateFormat("dd. MMM, HH:mm", Locale.getDefault()) }
+            val scoreColor = snoreScoreColor(latestSession.snoreScore)
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                    .clickable(onClick = onOpenLatestResult)
             ) {
-                Icon(imageVector = Icons.Default.Mic, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Aufzeichnung für heute Nacht starten",
-                    style = MaterialTheme.typography.titleSmall
-                )
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text(
+                            text = "Letzte Aufzeichnung ($sessionsCount Nächte)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = dateFormat.format(Date(latestSession.startTime)),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Schnarchanteil: ${latestSession.snorePercentage.toInt()}% • ${latestSession.snoreCount} Sequenzen",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = scoreColor.copy(alpha = 0.18f)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                        ) {
+                            Text("SCORE", style = MaterialTheme.typography.labelSmall, color = scoreColor, fontSize = 9.sp)
+                            Text(
+                                text = "${latestSession.snoreScore}",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = scoreColor
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Neu bei SnoreRec?",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Lade 10 realistische Beispiel-Nächte mit abspielbaren Schnarch-Samples, Hilfsmitteln und Trends, um alle SnoreLab-Funktionen sofort auszuprobieren.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Button(
+                        onClick = onSeedDemoClicked,
+                        colors = ButtonDefaults.buttonColors(containerColor = SnoreLabSurfaceElevated)
+                    ) {
+                        Icon(Icons.Default.BarChart, contentDescription = null, tint = SnoreLabCyan, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("10 Beispiel-Nächte laden", color = SnoreLabCyan)
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun SessionSelectionBar(
+private fun SetupOptionRow(
+    icon: ImageVector,
+    iconTint: Color,
+    title: String,
+    valueText: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(iconTint.copy(alpha = 0.16f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(19.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
+            )
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = valueText,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = SnoreLabCyan
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SnoreLabNightRibbon(
     sessions: List<NightSession>,
     selectedSession: NightSession?,
     onSelectSession: (NightSession) -> Unit
 ) {
-    val dateFormat = remember { SimpleDateFormat("dd. MMM", Locale.getDefault()) }
-    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+    val dayFormat = remember { SimpleDateFormat("dd. MMM", Locale.getDefault()) }
+    val weekdayFormat = remember { SimpleDateFormat("EEE", Locale.getDefault()) }
 
-    var expanded by remember { mutableStateOf(false) }
-
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { expanded = true }
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text(
-                    text = "Ausgewählte Nacht:",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                val label = if (selectedSession != null) {
-                    "${dateFormat.format(Date(selectedSession.startTime))} (${timeFormat.format(Date(selectedSession.startTime))} Uhr)"
-                } else {
-                    "Keine ausgewählt"
-                }
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-
+        sessions.forEach { session ->
+            val isSelected = session.id == selectedSession?.id
+            val scoreColor = snoreScoreColor(session.snoreScore)
             Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.primaryContainer
-            ) {
-                Text(
-                    text = "${sessions.size} Nächte ▾",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                )
-            }
-
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
-                sessions.forEach { s ->
-                    val isSelected = s.id == selectedSession?.id
-                    DropdownMenuItem(
-                        text = {
-                            Column {
-                                Text(
-                                    text = "${dateFormat.format(Date(s.startTime))} – ${s.snoreCount} Schnarcher",
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                )
-                                Text(
-                                    text = "Start: ${timeFormat.format(Date(s.startTime))}, Dauer: ${(s.durationMs / 3600000)} Std.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        },
-                        onClick = {
-                            onSelectSession(s)
-                            expanded = false
-                        }
+                shape = RoundedCornerShape(14.dp),
+                color = if (isSelected) SnoreLabSurfaceElevated else MaterialTheme.colorScheme.surfaceContainer,
+                modifier = Modifier
+                    .border(
+                        width = if (isSelected) 1.5.dp else 0.dp,
+                        color = if (isSelected) SnoreLabCyan else Color.Transparent,
+                        shape = RoundedCornerShape(14.dp)
                     )
+                    .clickable { onSelectSession(session) }
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                ) {
+                    Text(
+                        text = weekdayFormat.format(Date(session.startTime)).uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = dayFormat.format(Date(session.startTime)),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(scoreColor.copy(alpha = 0.22f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "${session.snoreScore}",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = scoreColor
+                        )
+                    }
                 }
             }
         }
     }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TonightRemediesAndFactorsDialog(
+    selectedRemedies: Set<String>,
+    selectedFactors: Set<String>,
+    customRemedies: Set<String>,
+    customFactors: Set<String>,
+    onToggleRemedy: (String) -> Unit,
+    onToggleFactor: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Hilfsmittel & Faktoren heute Nacht") },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Hilfsmittel (Remedies):",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = SnoreQuietGreen
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val remedies = customRemedies.map { SnoreCatalog.findRemedy(it) } + SnoreCatalog.defaultRemedies
+                    remedies.forEach { item ->
+                        val selected = selectedRemedies.contains(item.name)
+                        FilterChip(
+                            selected = selected,
+                            onClick = { onToggleRemedy(item.name) },
+                            label = { Text("${item.iconEmoji} ${item.name}") }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "Faktoren (Factors):",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = SnoreLoudOrange
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val factors = customFactors.map { SnoreCatalog.findFactor(it) } + SnoreCatalog.defaultFactors
+                    factors.forEach { item ->
+                        val selected = selectedFactors.contains(item.name)
+                        FilterChip(
+                            selected = selected,
+                            onClick = { onToggleFactor(item.name) },
+                            label = { Text("${item.iconEmoji} ${item.name}") }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Fertig")
+            }
+        }
+    )
 }
 
 @Composable
@@ -443,7 +1345,7 @@ private fun TabButton(
         modifier = modifier
             .padding(4.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
+            .background(if (selected) SnoreLabCyan else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp),
         contentAlignment = Alignment.Center
@@ -469,13 +1371,13 @@ private fun EmptyEventsCard() {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Keine Schnarchgeräusche erkannt",
+                text = "Keine passenden Aufnahmen",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "In dieser Nacht wurde kein Schnarchen oberhalb des Schwellenwerts registriert. Ruhiger Schlaf!",
+                text = "Für diesen Filter liegen in dieser Nacht keine Audio-Schnipsel vor.",
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -485,9 +1387,12 @@ private fun EmptyEventsCard() {
 }
 
 @Composable
-private fun EmptyHistoryHeroCard() {
+private fun EmptyHistoryHeroCard(
+    onStartClicked: () -> Unit,
+    onSeedDemoClicked: () -> Unit
+) {
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -498,15 +1403,31 @@ private fun EmptyHistoryHeroCard() {
             Text(
                 text = "Noch keine Schlafaufzeichnungen",
                 style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "Tippe oben auf 'Aufzeichnung für heute Nacht starten', lege dein Smartphone neben das Bett und lass dein Schnarchen automatisch analysieren.",
+                text = "Starte heute Nacht deine erste Überwachung oder lade 10 Beispiel-Nächte, um das SnoreLab-Diagramm und die Auswertungen direkt zu erkunden.",
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
+                    onClick = onStartClicked,
+                    colors = ButtonDefaults.buttonColors(containerColor = SnoreQuietGreen)
+                ) {
+                    Text("Zur Aufnahme", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = onSeedDemoClicked,
+                    colors = ButtonDefaults.buttonColors(containerColor = SnoreLabSurfaceElevated)
+                ) {
+                    Text("10 Demo-Nächte laden", color = SnoreLabCyan)
+                }
+            }
         }
     }
 }
