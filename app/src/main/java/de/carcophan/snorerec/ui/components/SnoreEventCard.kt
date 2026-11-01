@@ -98,13 +98,20 @@ fun SnoreEventCard(
                     Spacer(modifier = Modifier.width(12.dp))
 
                     Column {
+                        val startText = timeFormat.format(Date(event.timestamp))
+                        val timeRangeText = if (event.durationMs >= 5000L) {
+                            val endText = timeFormat.format(Date(event.timestamp + event.durationMs))
+                            "$startText – $endText"
+                        } else {
+                            startText
+                        }
                         Text(
-                            text = timeFormat.format(Date(event.timestamp)),
+                            text = timeRangeText,
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Dauer: ${String.format(Locale.getDefault(), "%.1f", event.durationMs / 1000f)}s",
+                            text = "Dauer: ${formatEventDuration(event.durationMs)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -137,5 +144,16 @@ fun SnoreEventCard(
                 )
             }
         }
+    }
+}
+
+private fun formatEventDuration(durationMs: Long): String {
+    val totalSeconds = durationMs / 1000
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return if (minutes > 0) {
+        "${minutes}m ${seconds}s"
+    } else {
+        String.format(Locale.getDefault(), "%.1fs", durationMs / 1000f)
     }
 }

@@ -109,13 +109,19 @@ fun SnoreTimelineChart(
                         detectTapGestures { tapOffset ->
                             val width = size.width
                             val tappedX = tapOffset.x
-                            // Find closest event
+                            // Find closest event (considering full sequence span)
                             var closest: SnoreEvent? = null
                             var minDistance = Float.MAX_VALUE
                             events.forEach { event ->
-                                val eventFraction = (event.timestamp - sessionStart).toFloat() / totalSpan.toFloat()
-                                val eventX = eventFraction * width
-                                val dist = abs(eventX - tappedX)
+                                val startFraction = (event.timestamp - sessionStart).toFloat() / totalSpan.toFloat()
+                                val endFraction = ((event.timestamp + event.durationMs) - sessionStart).toFloat() / totalSpan.toFloat()
+                                val startX = startFraction * width
+                                val endX = (endFraction * width).coerceAtLeast(startX + 10f)
+                                val dist = when {
+                                    tappedX < startX -> startX - tappedX
+                                    tappedX > endX -> tappedX - endX
+                                    else -> 0f
+                                }
                                 if (dist < 40f && dist < minDistance) {
                                     minDistance = dist
                                     closest = event
@@ -173,10 +179,13 @@ fun SnoreTimelineChart(
                     t += hourStep
                 }
 
-                // 3. Draw Snore Event Bars
+                // 3. Draw Snore Sequence Bars
+                val minBarWidth = 5.dp.toPx()
                 events.forEach { event ->
                     val fraction = (event.timestamp - sessionStart).toFloat() / totalSpan.toFloat()
-                    val x = fraction * chartWidth
+                    val durationFraction = (event.durationMs.toFloat() / totalSpan.toFloat()).coerceIn(0f, 1f)
+                    val barWidth = (durationFraction * chartWidth).coerceAtLeast(minBarWidth)
+                    val x = (fraction * chartWidth).coerceIn(0f, (chartWidth - barWidth).coerceAtLeast(0f))
                     val normalizedDb = ((event.peakDb - 35f) / (85f - 35f)).coerceIn(0.1f, 1.0f)
                     val barHeight = normalizedDb * chartHeight
                     val y = chartHeight - barHeight
@@ -193,17 +202,17 @@ fun SnoreTimelineChart(
                     if (isSelected) {
                         drawRoundRect(
                             color = selectionHighlight.copy(alpha = 0.35f),
-                            topLeft = Offset(x - 6.dp.toPx(), y - 4.dp.toPx()),
-                            size = Size(12.dp.toPx(), barHeight + 4.dp.toPx()),
+                            topLeft = Offset(x - 3.5.dp.toPx(), y - 4.dp.toPx()),
+                            size = Size(barWidth + 7.dp.toPx(), barHeight + 4.dp.toPx()),
                             cornerRadius = CornerRadius(4.dp.toPx())
                         )
                     }
 
-                    // Main event bar
+                    // Main sequence bar
                     drawRoundRect(
                         color = if (isSelected) selectionHighlight else color,
-                        topLeft = Offset(x - 2.5.dp.toPx(), y),
-                        size = Size(5.dp.toPx(), barHeight),
+                        topLeft = Offset(x, y),
+                        size = Size(barWidth, barHeight),
                         cornerRadius = CornerRadius(2.5.dp.toPx())
                     )
                 }

@@ -40,8 +40,9 @@ class AacAudioWriter(
             codec = encoder
 
             muxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
-        } catch (_: Exception) {
+        } catch (e: Throwable) {
             release()
+            throw IllegalStateException("Failed to initialize AAC encoder", e)
         }
     }
 

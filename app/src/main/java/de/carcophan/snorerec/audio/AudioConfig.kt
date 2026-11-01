@@ -14,8 +14,9 @@ object AudioConfig {
     // Detection thresholds
     const val SNORE_MIN_DB = 42.0f
     const val SNORE_MIN_DURATION_MS = 600L
-    const val SNORE_POST_SILENCE_MS = 1200L
-    const val SNORE_MAX_EVENT_DURATION_MS = 15000L // Cap single snore clip at 15s
+    const val SNORE_POST_SILENCE_MS = 1500L
+    const val SNORE_SEQUENCE_GAP_MS = 20000L // Merge snores up to 20s apart into one contiguous sequence
+    const val SNORE_MAX_EVENT_DURATION_MS = 300000L // Cap single snore sequence clip at 5 minutes
 
     // YAMNet Machine Learning Constants
     const val YAMNET_SAMPLE_COUNT = 15600 // 0.975s at 16kHz

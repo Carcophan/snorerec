@@ -1,6 +1,9 @@
 package de.carcophan.snorerec
 
+import de.carcophan.snorerec.audio.AudioConfig
 import de.carcophan.snorerec.audio.RingBuffer
+import de.carcophan.snorerec.audio.SnoreDetector
+import de.carcophan.snorerec.audio.SnoreEventResult
 import de.carcophan.snorerec.audio.WavAudioWriter
 import de.carcophan.snorerec.data.model.NightSession
 import de.carcophan.snorerec.data.model.SnoreIntensity
@@ -9,6 +12,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import kotlin.math.PI
+import kotlin.math.sin
 
 class SnoreRecUnitTest {
 
@@ -98,5 +103,67 @@ class SnoreRecUnitTest {
         assertTrue(outputFile.exists())
         // 44 bytes header + 1600 * 2 bytes = 3244 bytes
         assertEquals(44L + 3200L, outputFile.length())
+    }
+
+    @Test
+    fun snoreDetector_combinesContiguousSnoreSequenceIntoSingleFile() {
+        val recordingsDir = tempFolder.newFolder("recordings")
+        val ringBuffer = RingBuffer(AudioConfig.RING_BUFFER_CAPACITY)
+        val detectedEvents = mutableListOf<SnoreEventResult>()
+        var simulatedTimeMs = 1_000_000L
+
+        val detector = SnoreDetector(
+            recordingsDir = recordingsDir,
+            ringBuffer = ringBuffer,
+            yamnetClassifier = null,
+            onSnoreDetected = { detectedEvents.add(it) },
+            onAudioLevel = {},
+            timeProvider = { simulatedTimeMs }
+        )
+
+        // Frame size: 1600 samples = 100ms at 16kHz
+        val frameSamples = 1600
+        val frameDurationMs = 100L
+
+        // Generate 150Hz low-frequency snore-like sine wave (~65 dB)
+        val snoreFrame = ShortArray(frameSamples) { i ->
+            (3000.0 * sin(2.0 * PI * 150.0 * i / AudioConfig.SAMPLE_RATE)).toInt().toShort()
+        }
+        val silenceFrame = ShortArray(frameSamples) { 0 }
+
+        fun feedFrames(frame: ShortArray, durationMs: Long) {
+            val steps = (durationMs / frameDurationMs).toInt()
+            repeat(steps) {
+                simulatedTimeMs += frameDurationMs
+                detector.processAudioFrame(frame)
+            }
+        }
+
+        // 1. Snore #1: 1.5s snore
+        feedFrames(snoreFrame, 1500L)
+        // 2. Breathing pause: 4.0s silence (< SNORE_SEQUENCE_GAP_MS, previously > 1.2s would have split!)
+        feedFrames(silenceFrame, 4000L)
+        // 3. Snore #2: 1.5s snore
+        feedFrames(snoreFrame, 1500L)
+        // 4. Longer breathing pause: 8.0s silence (still within 20s sequence gap)
+        feedFrames(silenceFrame, 8000L)
+        // 5. Snore #3: 1.5s snore
+        feedFrames(snoreFrame, 1500L)
+
+        // Still active in the same sequence -> 0 finalized files so far
+        assertEquals(0, detectedEvents.size)
+
+        // 6. Now 21s of silence (> SNORE_SEQUENCE_GAP_MS = 20s) to finish the sequence
+        feedFrames(silenceFrame, 21000L)
+
+        // All 3 snores + breathing pauses between them must be saved in ONE single file
+        assertEquals(1, detectedEvents.size)
+        val event = detectedEvents.first()
+        assertTrue(event.audioFile.exists())
+
+        // Expected sequence duration:
+        // 1.5s + 4.0s + 1.5s + 8.0s + 1.5s = 16.5s of sequence + 1.5s post-silence = ~18.0s
+        // (and NOT 16.5s + 21s = 37.5s, because trailing silence after post-roll is discarded)
+        assertTrue("Expected duration around 18s, got ${event.durationMs}ms", event.durationMs in 17000L..19000L)
     }
 }

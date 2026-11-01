@@ -42,6 +42,13 @@ if [ "$DEVICE_COUNT" -eq 0 ]; then
 fi
 
 echo "==> 3. Release APK bauen..."
+if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/jlink" ]; then
+    if [ -x "/home/joachim/programme/android-studio/jbr/bin/jlink" ]; then
+        export JAVA_HOME="/home/joachim/programme/android-studio/jbr"
+    elif [ -x "/usr/lib/jvm/java-1.25.0-openjdk-amd64/bin/jlink" ]; then
+        export JAVA_HOME="/usr/lib/jvm/java-1.25.0-openjdk-amd64"
+    fi
+fi
 ./gradlew assembleRelease
 
 APK_PATH="app/build/outputs/apk/release/app-release.apk"

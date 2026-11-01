@@ -144,8 +144,9 @@ const val SAMPLE_RATE = 16000                // 16 kHz für YAMNet-Kompatibilit�
 const val PRE_ROLL_SECONDS = 2.5f            // Puffergröße vor erkanntem Schnarchen
 const val SNORE_MIN_DB = 42.0f               // Mindestpegel für Detektion
 const val SNORE_MIN_DURATION_MS = 600L       // Minimale Dauer eines Schnarchers
-const val SNORE_POST_SILENCE_MS = 1200L      // Nachlaufzeit vor Abschluss des Clips
-const val SNORE_MAX_EVENT_DURATION_MS = 15000L // Maximale Cliplänge (15 Sekunden)
+const val SNORE_POST_SILENCE_MS = 1500L      // Nachlaufzeit nach dem letzten Schnarcher einer Sequenz
+const val SNORE_SEQUENCE_GAP_MS = 20000L     // Max. Atempause (20 s), innerhalb derer Schnarcher zu einer Sequenz verbunden werden
+const val SNORE_MAX_EVENT_DURATION_MS = 300000L // Maximale Cliplänge einer Schnarchsequenz (5 Minuten)
 const val YAMNET_SNORE_THRESHOLD = 0.15f     // Konfidenz-Schwelle des ML-Modells
 ```
 
