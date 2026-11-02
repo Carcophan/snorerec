@@ -88,8 +88,8 @@ data class NightSession(
                 (mildMs * 1.0 + moderateMs * 2.2 + heavyMs * 3.8)
             } else {
                 val dbFactor = when {
-                    peakDb >= 62f || avgDb >= 58f -> 2.8
-                    peakDb >= 48f || avgDb >= 46f -> 1.8
+                    peakDb >= 68f || avgDb >= 62f -> 2.8
+                    peakDb >= 52f || avgDb >= 48f -> 1.8
                     else -> 1.1
                 }
                 totalSnoreMs * dbFactor

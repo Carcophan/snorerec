@@ -60,11 +60,24 @@ class SnoreRecUnitTest {
     @Test
     fun snoreIntensity_classifiesCorrectly() {
         assertEquals(SnoreIntensity.MILD, SnoreIntensity.fromDb(35f))
-        assertEquals(SnoreIntensity.MILD, SnoreIntensity.fromDb(47.9f))
-        assertEquals(SnoreIntensity.MODERATE, SnoreIntensity.fromDb(48f))
-        assertEquals(SnoreIntensity.MODERATE, SnoreIntensity.fromDb(61.9f))
-        assertEquals(SnoreIntensity.HEAVY, SnoreIntensity.fromDb(62f))
+        assertEquals(SnoreIntensity.MILD, SnoreIntensity.fromDb(51.9f))
+        assertEquals(SnoreIntensity.MODERATE, SnoreIntensity.fromDb(52f))
+        assertEquals(SnoreIntensity.MODERATE, SnoreIntensity.fromDb(67.9f))
+        assertEquals(SnoreIntensity.HEAVY, SnoreIntensity.fromDb(68f))
         assertEquals(SnoreIntensity.HEAVY, SnoreIntensity.fromDb(85f))
+    }
+
+    @Test
+    fun snoreIntensity_fromEvent_doesNotMarkMildSnoringAsHeavy() {
+        // Mild snoring with a momentary spike (e.g. 62 dB peak) should NOT be classified as Episch (HEAVY)
+        val mildWithSpike = SnoreIntensity.fromEvent(avgDb = 45f, peakDb = 62f)
+        assertTrue("Mild snoring with 62 dB peak should not be HEAVY/Episch", mildWithSpike != SnoreIntensity.HEAVY)
+
+        val mildQuiet = SnoreIntensity.fromEvent(avgDb = 42f, peakDb = 50f)
+        assertEquals(SnoreIntensity.MILD, mildQuiet)
+
+        val severeHeavy = SnoreIntensity.fromEvent(avgDb = 65f, peakDb = 72f)
+        assertEquals(SnoreIntensity.HEAVY, severeHeavy)
     }
 
     @Test
@@ -141,30 +154,52 @@ class SnoreRecUnitTest {
 
         // 1. Snore #1: 1.5s snore
         feedFrames(snoreFrame, 1500L)
-        // 2. Breathing pause: 4.0s silence (< SNORE_SEQUENCE_GAP_MS, previously > 1.2s would have split!)
+        // 2. Breathing pause: 4.0s silence (< SNORE_SEQUENCE_GAP_MS)
         feedFrames(silenceFrame, 4000L)
         // 3. Snore #2: 1.5s snore
         feedFrames(snoreFrame, 1500L)
-        // 4. Longer breathing pause: 8.0s silence (still within 20s sequence gap)
-        feedFrames(silenceFrame, 8000L)
+        // 4. Realistic 25s breathing pause between snore cycles (previously > 20s split into fragments!)
+        feedFrames(silenceFrame, 25000L)
         // 5. Snore #3: 1.5s snore
         feedFrames(snoreFrame, 1500L)
 
         // Still active in the same sequence -> 0 finalized files so far
         assertEquals(0, detectedEvents.size)
 
-        // 6. Now 21s of silence (> SNORE_SEQUENCE_GAP_MS = 20s) to finish the sequence
-        feedFrames(silenceFrame, 21000L)
+        // 6. Now 41s of silence (> SNORE_SEQUENCE_GAP_MS = 40s) to finish the sequence
+        feedFrames(silenceFrame, 41000L)
 
-        // All 3 snores + breathing pauses between them must be saved in ONE single file
+        // All 3 snores + breathing pauses between them must be saved in ONE single cohesive file
         assertEquals(1, detectedEvents.size)
         val event = detectedEvents.first()
         assertTrue(event.audioFile.exists())
 
         // Expected sequence duration:
-        // 1.5s + 4.0s + 1.5s + 8.0s + 1.5s = 16.5s of sequence + 1.5s post-silence = ~18.0s
-        // (and NOT 16.5s + 21s = 37.5s, because trailing silence after post-roll is discarded)
-        assertTrue("Expected duration around 18s, got ${event.durationMs}ms", event.durationMs in 17000L..19000L)
+        // 1.5s + 4.0s + 1.5s + 25.0s + 1.5s = 33.5s of sequence + 3.0s post-silence = ~36.5s
+        // (trailing silence after post-roll is discarded)
+        assertTrue("Expected duration around 36.5s, got ${event.durationMs}ms", event.durationMs in 35000L..38000L)
+    }
+
+    @Test
+    fun audioMerger_mergesWavFilesCorrectly() {
+        val fileA = tempFolder.newFile("snoreA.wav")
+        val fileB = tempFolder.newFile("snoreB.wav")
+        val mergedOut = tempFolder.newFile("snore_merged.wav")
+
+        val writerA = WavAudioWriter(fileA, sampleRate = AudioConfig.SAMPLE_RATE)
+        writerA.writeSamples(ShortArray(1600) { 100 }) // 100ms
+        writerA.finish()
+
+        val writerB = WavAudioWriter(fileB, sampleRate = AudioConfig.SAMPLE_RATE)
+        writerB.writeSamples(ShortArray(3200) { 200 }) // 200ms
+        writerB.finish()
+
+        val success = de.carcophan.snorerec.audio.AudioMerger.mergeFiles(fileA, fileB, mergedOut, gapDurationMs = 100L)
+        assertTrue(success)
+        assertTrue(mergedOut.exists())
+
+        // 1600 + (100ms * 16 = 1600) + 3200 = 6400 samples * 2 bytes = 12800 payload bytes + 44 header = 12844
+        assertEquals(44L + 12800L, mergedOut.length())
     }
 
     @Test

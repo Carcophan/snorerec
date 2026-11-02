@@ -197,6 +197,42 @@ class SnoreDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         db.update(TABLE_EVENTS, values, "$COL_EVENT_ID = ?", arrayOf(eventId.toString()))
     }
 
+    fun updateSnoreEvent(event: SnoreEvent) {
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            put(COL_EVENT_TIMESTAMP, event.timestamp)
+            put(COL_EVENT_DURATION, event.durationMs)
+            put(COL_EVENT_PEAK_DB, event.peakDb)
+            put(COL_EVENT_AVG_DB, event.avgDb)
+            put(COL_EVENT_AUDIO_PATH, event.audioFilePath)
+            put(COL_EVENT_SCORE, event.snoreScore)
+            put(COL_EVENT_BOOKMARKED, if (event.isBookmarked) 1 else 0)
+        }
+        db.update(TABLE_EVENTS, values, "$COL_EVENT_ID = ?", arrayOf(event.id.toString()))
+        updateSessionAggregates(db, event.sessionId)
+    }
+
+    fun deleteSnoreEventRecordOnly(eventId: Long): Long? {
+        val db = writableDatabase
+        var sessionId: Long? = null
+        db.query(
+            TABLE_EVENTS,
+            arrayOf(COL_EVENT_SESSION_ID),
+            "$COL_EVENT_ID = ?",
+            arrayOf(eventId.toString()),
+            null,
+            null,
+            null
+        ).use { cursor ->
+            if (cursor.moveToFirst()) {
+                sessionId = cursor.getLong(cursor.getColumnIndexOrThrow(COL_EVENT_SESSION_ID))
+            }
+        }
+        db.delete(TABLE_EVENTS, "$COL_EVENT_ID = ?", arrayOf(eventId.toString()))
+        sessionId?.let { updateSessionAggregates(db, it) }
+        return sessionId
+    }
+
     fun deleteSnoreEvent(eventId: Long): Long? {
         val db = writableDatabase
         var sessionId: Long? = null

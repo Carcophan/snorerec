@@ -261,7 +261,7 @@ fun SnorePatternAnalysisView(
                 SnoreLabTableRow(
                     dotColor = SnoreLightYellow,
                     label = "Leicht",
-                    sublabel = "${breakdown.mildCount} Sequenzen (42–48 dB)",
+                    sublabel = "${breakdown.mildCount} Sequenzen (42–52 dB)",
                     durationMs = breakdown.mildDurationMs,
                     percentage = breakdown.mildPercentageOfSleep
                 )
@@ -269,7 +269,7 @@ fun SnorePatternAnalysisView(
                 SnoreLabTableRow(
                     dotColor = SnoreLoudOrange,
                     label = "Laut",
-                    sublabel = "${breakdown.moderateCount} Sequenzen (48–62 dB)",
+                    sublabel = "${breakdown.moderateCount} Sequenzen (52–68 dB)",
                     durationMs = breakdown.moderateDurationMs,
                     percentage = breakdown.moderatePercentageOfSleep
                 )
@@ -277,7 +277,7 @@ fun SnorePatternAnalysisView(
                 SnoreLabTableRow(
                     dotColor = SnoreEpicRed,
                     label = "Episch",
-                    sublabel = "${breakdown.heavyCount} Sequenzen (≥ 62 dB)",
+                    sublabel = "${breakdown.heavyCount} Sequenzen (≥ 68 dB)",
                     durationMs = breakdown.heavyDurationMs,
                     percentage = breakdown.heavyPercentageOfSleep
                 )
@@ -460,8 +460,8 @@ fun SnorePatternAnalysisView(
                                 val fraction = (bucket.snoreCount.toFloat() / maxBucketCount).coerceIn(0f, 1f)
                                 if (fraction > 0f) {
                                     val barColor = when {
-                                        bucket.avgDb >= 62f -> SnoreEpicRed
-                                        bucket.avgDb >= 48f -> SnoreLoudOrange
+                                        bucket.avgDb >= 68f -> SnoreEpicRed
+                                        bucket.avgDb >= 52f -> SnoreLoudOrange
                                         else -> SnoreLightYellow
                                     }
                                     Box(

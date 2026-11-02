@@ -240,9 +240,31 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    fun playAudio(eventId: Long, filePath: String) {
+    fun playAudio(eventId: Long, filePath: String, onFinished: (() -> Unit)? = null) {
         stopPreviewSleepSound()
-        audioPlayer.play(eventId, filePath)
+        audioPlayer.play(eventId, filePath, onFinished)
+    }
+
+    fun playNextEventInList(currentEventId: Long, events: List<SnoreEvent>) {
+        val playable = events.filter { it.audioFilePath != null }
+        val currentIndex = playable.indexOfFirst { it.id == currentEventId }
+        if (currentIndex in 0 until playable.size - 1) {
+            val nextEvent = playable[currentIndex + 1]
+            nextEvent.audioFilePath?.let { path ->
+                playAudio(nextEvent.id, path) {
+                    playNextEventInList(nextEvent.id, events)
+                }
+            }
+        }
+    }
+
+    fun consolidateSelectedSession(onResult: ((Int) -> Unit)? = null) {
+        val current = selectedSession.value ?: return
+        viewModelScope.launch {
+            val count = repository.consolidateFragmentedEvents(current.id)
+            refreshStorageUsage()
+            onResult?.invoke(count)
+        }
     }
 
     fun stopAudio() {

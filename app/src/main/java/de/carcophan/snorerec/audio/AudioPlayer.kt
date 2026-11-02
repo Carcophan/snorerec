@@ -26,7 +26,7 @@ class AudioPlayer(private val scope: CoroutineScope) {
     private val _playbackProgress = MutableStateFlow(0f)
     val playbackProgress: StateFlow<Float> = _playbackProgress.asStateFlow()
 
-    fun play(eventId: Long, filePath: String) {
+    fun play(eventId: Long, filePath: String, onFinished: (() -> Unit)? = null) {
         if (_playingEventId.value == eventId && _isPlaying.value) {
             stop()
             return
@@ -43,6 +43,7 @@ class AudioPlayer(private val scope: CoroutineScope) {
                 prepare()
                 setOnCompletionListener {
                     stop()
+                    onFinished?.invoke()
                 }
                 start()
             }

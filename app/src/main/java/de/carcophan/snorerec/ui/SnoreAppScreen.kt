@@ -40,9 +40,11 @@ import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Healing
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.NightsStay
@@ -54,6 +56,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -158,6 +162,8 @@ fun SnoreAppScreen(
     var currentBottomTab by remember { mutableStateOf(MainBottomTab.RECORD) }
     var resultsSubTab by remember { mutableIntStateOf(0) } // 0: Diagramm & Analyse, 1: Audio-Aufnahmen
     var selectedClipFilter by remember { mutableStateOf(AudioClipFilter.ALL) }
+    var autoPlayNextClips by remember { mutableStateOf(false) }
+    var consolidationMessage by remember { mutableStateOf<String?>(null) }
 
     // Dialog states
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
@@ -406,8 +412,8 @@ fun SnoreAppScreen(
                                 item {
                                     Row(
                                         modifier = Modifier
-                                            .fillMaxWidth()
-                                            .horizontalScroll(rememberScrollState()),
+                                             .fillMaxWidth()
+                                             .horizontalScroll(rememberScrollState()),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         AudioClipFilter.entries.forEach { filter ->
@@ -421,6 +427,78 @@ fun SnoreAppScreen(
                                                     selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                                                 )
                                             )
+                                        }
+                                    }
+                                }
+
+                                // Continuous playback option & Fragment consolidation action
+                                item {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.clickable { autoPlayNextClips = !autoPlayNextClips }
+                                        ) {
+                                            Checkbox(
+                                                checked = autoPlayNextClips,
+                                                onCheckedChange = { autoPlayNextClips = it },
+                                                colors = CheckboxDefaults.colors(checkedColor = SnoreLabCyan)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                "Fortlaufend abspielen",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+
+                                        if (events.size > 1) {
+                                            TextButton(
+                                                onClick = {
+                                                    viewModel.consolidateSelectedSession { merged ->
+                                                        consolidationMessage = if (merged > 0) {
+                                                            "$merged zusammengehörende Schnarch-Fragmente verbunden"
+                                                        } else {
+                                                            "Keine weiteren zusammengehörenden Fragmente gefunden"
+                                                        }
+                                                    }
+                                                }
+                                            ) {
+                                                Icon(Icons.Default.Layers, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("Fragmente verbinden", style = MaterialTheme.typography.labelSmall)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (consolidationMessage != null) {
+                                    item {
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = SnoreLabSurfaceElevated,
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text(
+                                                    text = consolidationMessage!!,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = SnoreLabCyan
+                                                )
+                                                IconButton(
+                                                    onClick = { consolidationMessage = null },
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Icon(Icons.Default.Close, contentDescription = "Schließen", modifier = Modifier.size(16.dp))
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -446,7 +524,13 @@ fun SnoreAppScreen(
                                             progress = if (playingEventId == event.id) playbackProgress else 0f,
                                             onPlayToggle = {
                                                 event.audioFilePath?.let { path ->
-                                                    viewModel.playAudio(event.id, path)
+                                                    if (autoPlayNextClips) {
+                                                        viewModel.playAudio(event.id, path) {
+                                                            viewModel.playNextEventInList(event.id, filteredEvents)
+                                                        }
+                                                    } else {
+                                                        viewModel.playAudio(event.id, path)
+                                                    }
                                                 }
                                             },
                                             onBookmarkToggle = { viewModel.toggleBookmark(event) },

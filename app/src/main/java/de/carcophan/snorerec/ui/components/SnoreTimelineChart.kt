@@ -190,9 +190,9 @@ fun SnoreTimelineChart(
 
                 // 1. SnoreLab Y-axis bands: Episch, Laut, Leicht, Ruhe
                 val bands = listOf(
-                    Triple("Episch", 72f, heavyColor),
-                    Triple("Laut", 56f, moderateColor),
-                    Triple("Leicht", 44f, mildColor),
+                    Triple("Episch", 68f, heavyColor),
+                    Triple("Laut", 52f, moderateColor),
+                    Triple("Leicht", 42f, mildColor),
                     Triple("Ruhe", 28f, quietColor)
                 )
 

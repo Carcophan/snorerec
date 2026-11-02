@@ -52,7 +52,7 @@ class SnoreDetector(
     // Buffer for audio frames during breathing pauses between snores in a sequence
     // (after SNORE_POST_SILENCE_MS up to SNORE_SEQUENCE_GAP_MS).
     // Flushed to the audio file if another snore follows; discarded if the sequence ends.
-    private val maxGapSamples = ((AudioConfig.SNORE_SEQUENCE_GAP_MS + 2000L) * AudioConfig.SAMPLE_RATE / 1000L).toInt()
+    private val maxGapSamples = ((AudioConfig.SNORE_SEQUENCE_GAP_MS + 4000L) * AudioConfig.SAMPLE_RATE / 1000L).toInt()
     private val pendingGapBuffer = ShortArray(maxGapSamples)
     private var pendingGapCount = 0
 
@@ -220,7 +220,7 @@ class SnoreDetector(
                                 Log.d(TAG, "Active ML check: snoreConf=${classification.snoreConfidence}, peak=$peakSnoreConfidence, top=${classification.topLabel}")
                             }
                         }
-                    } else if (now - lastBurstFrameTime > 400L) {
+                    } else if (now - lastBurstFrameTime > AudioConfig.SNORE_CONTINUATION_DROPOUT_MS) {
                         // Individual snore breath ended; enter inter-snore breathing pause
                         inSnoreBurst = false
                         burstStartTime = 0L
@@ -233,14 +233,20 @@ class SnoreDetector(
                             burstStartTime = now
                         }
                         lastBurstFrameTime = now
+                        // Keep sequence alive immediately whenever snore sound is detected
+                        lastSnoreFrameTime = now
+                        peakDb = max(peakDb, db)
+                        sumDb += db
+                        frameCount++
 
-                        if (now - burstStartTime >= AudioConfig.SNORE_MIN_DURATION_MS) {
+                        // For continuation in an already established sequence, use lower duration threshold
+                        if (now - burstStartTime >= AudioConfig.SNORE_CONTINUATION_MIN_DURATION_MS) {
                             var allowBurst = true
                             if (yamnetClassifier != null && yamnetClassifier.isReady) {
                                 val candidateAudio = ringBuffer.readLast(AudioConfig.YAMNET_SAMPLE_COUNT)
                                 val classification = yamnetClassifier.classify(candidateAudio)
                                 if (classification != null) {
-                                    if (!classification.isSnoring && (classification.topConfidence >= 0.20f && classification.snoreConfidence < 0.05f)) {
+                                    if (!classification.isSnoring && (classification.topConfidence >= 0.40f && classification.snoreConfidence < 0.05f)) {
                                         Log.i(TAG, "Ignored non-snore sound during sequence pause: ${classification.topLabel} (${classification.topConfidence})")
                                         allowBurst = false
                                     } else {
@@ -254,14 +260,11 @@ class SnoreDetector(
                                 inSnoreBurst = true
                                 lastSnoreFrameTime = now
                                 lastMlCheckTime = now
-                                peakDb = max(peakDb, db)
-                                sumDb += db
-                                frameCount++
                             } else {
                                 burstStartTime = 0L
                             }
                         }
-                    } else if (burstStartTime != 0L && now - lastBurstFrameTime > 400L) {
+                    } else if (burstStartTime != 0L && now - lastBurstFrameTime > AudioConfig.SNORE_CONTINUATION_DROPOUT_MS) {
                         burstStartTime = 0L
                     }
                 }

@@ -1,6 +1,7 @@
 package de.carcophan.snorerec.data.repository
 
 import de.carcophan.snorerec.audio.AudioConfig
+import de.carcophan.snorerec.audio.AudioMerger
 import de.carcophan.snorerec.audio.WavAudioWriter
 import de.carcophan.snorerec.data.db.SnoreDatabase
 import de.carcophan.snorerec.data.model.NightSession
@@ -84,6 +85,7 @@ class SnoreRepository(
     }
 
     suspend fun finishSession(sessionId: Long, endTime: Long = System.currentTimeMillis()) = withContext(ioDispatcher) {
+        consolidateFragmentedEvents(sessionId)
         database.endSession(sessionId, endTime)
         refreshSessions()
     }
@@ -131,6 +133,77 @@ class SnoreRepository(
             _selectedSession.value = database.getSession(sessionId)
             _selectedSessionEvents.value = database.getEventsForSession(sessionId)
         }
+    }
+
+    /**
+     * Consolidates adjacent fragmented snore events that belong to the same snoring episode.
+     * Merges their database records, metrics, and audio files cleanly.
+     */
+    suspend fun consolidateFragmentedEvents(sessionId: Long, maxGapMs: Long = 40_000L): Int = withContext(ioDispatcher) {
+        var mergedCount = 0
+        var hasMore = true
+
+        while (hasMore) {
+            val events = database.getEventsForSession(sessionId).sortedBy { it.timestamp }
+            var mergedInPass = false
+
+            for (i in 0 until events.size - 1) {
+                val evA = events[i]
+                val evB = events[i + 1]
+
+                val gap = evB.timestamp - (evA.timestamp + evA.durationMs)
+                if (gap in 0L..maxGapMs) {
+                    val combinedStart = evA.timestamp
+                    val combinedDuration = (evB.timestamp + evB.durationMs) - combinedStart
+                    val combinedPeakDb = maxOf(evA.peakDb, evB.peakDb)
+                    val totalWeightMs = (evA.durationMs + evB.durationMs).coerceAtLeast(1L)
+                    val combinedAvgDb = ((evA.avgDb * evA.durationMs + evB.avgDb * evB.durationMs) / totalWeightMs)
+                    val combinedScore = maxOf(evA.snoreScore, evB.snoreScore)
+                    val isBookmarked = evA.isBookmarked || evB.isBookmarked
+
+                    var finalAudioPath = evA.audioFilePath
+                    if (evA.audioFilePath != null && evB.audioFilePath != null) {
+                        val fileA = File(evA.audioFilePath)
+                        val fileB = File(evB.audioFilePath)
+                        if (fileA.exists() && fileB.exists()) {
+                            val mergedFile = File(fileA.parentFile, "snore_${combinedStart}_merged.${fileA.extension}")
+                            val success = AudioMerger.mergeFiles(fileA, fileB, mergedFile, gapDurationMs = gap)
+                            if (success) {
+                                try { fileA.delete() } catch (_: Exception) {}
+                                try { fileB.delete() } catch (_: Exception) {}
+                                finalAudioPath = mergedFile.absolutePath
+                            }
+                        }
+                    } else if (evA.audioFilePath == null && evB.audioFilePath != null) {
+                        finalAudioPath = evB.audioFilePath
+                    }
+
+                    val mergedEvent = evA.copy(
+                        timestamp = combinedStart,
+                        durationMs = combinedDuration,
+                        peakDb = combinedPeakDb,
+                        avgDb = combinedAvgDb,
+                        audioFilePath = finalAudioPath,
+                        snoreScore = combinedScore,
+                        isBookmarked = isBookmarked
+                    )
+
+                    database.updateSnoreEvent(mergedEvent)
+                    database.deleteSnoreEventRecordOnly(evB.id)
+
+                    mergedCount++
+                    mergedInPass = true
+                    break // restart loop with updated session events
+                }
+            }
+
+            hasMore = mergedInPass
+        }
+
+        if (mergedCount > 0) {
+            refreshSessions()
+        }
+        mergedCount
     }
 
     suspend fun deleteSession(sessionId: Long) = withContext(ioDispatcher) {
@@ -336,8 +409,8 @@ class SnoreRepository(
                 val avgDb = (peakDb - (3f + rand.nextFloat() * 4f)).coerceAtLeast(40f)
                 val durMs = rand.nextLong(22_000L, 165_000L) // 22s to 2m45s sequence
                 val audioPath = when {
-                    peakDb >= 62f -> heavyWav.absolutePath
-                    peakDb >= 48f -> modWav.absolutePath
+                    peakDb >= 68f -> heavyWav.absolutePath
+                    peakDb >= 52f -> modWav.absolutePath
                     else -> mildWav.absolutePath
                 }
                 events.add(

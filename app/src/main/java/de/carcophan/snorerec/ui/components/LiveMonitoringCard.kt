@@ -261,14 +261,14 @@ fun LiveMonitoringCard(
                 // Live Audio Waveform & Decibel Meter
                 val normalizedDb = ((currentDb - 20f) / 60f).coerceIn(0.04f, 1f)
                 val levelColor = when {
-                    currentDb >= 62f -> SnoreEpicRed
-                    currentDb >= 48f -> SnoreLoudOrange
+                    currentDb >= 68f -> SnoreEpicRed
+                    currentDb >= 52f -> SnoreLoudOrange
                     currentDb >= 42f -> SnoreLightYellow
                     else -> SnoreQuietGreen
                 }
                 val levelLabel = when {
-                    currentDb >= 62f -> "Episch"
-                    currentDb >= 48f -> "Laut"
+                    currentDb >= 68f -> "Episch"
+                    currentDb >= 52f -> "Laut"
                     currentDb >= 42f -> "Leicht"
                     else -> "Ruhe"
                 }
