@@ -295,8 +295,8 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    fun setProfile(age: Int, heightCm: Int, weightKg: Float, scoreGoal: Int) {
-        preferences.setProfile(age, heightCm, weightKg, scoreGoal)
+    fun setProfile(age: Int, scoreGoal: Int) {
+        preferences.setProfile(age, scoreGoal)
     }
 
     fun exportCsv(context: Context) {

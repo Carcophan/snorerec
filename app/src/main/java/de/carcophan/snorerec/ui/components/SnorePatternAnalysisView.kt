@@ -2,7 +2,6 @@ package de.carcophan.snorerec.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,13 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -40,7 +33,6 @@ import de.carcophan.snorerec.data.model.NightSession
 import de.carcophan.snorerec.ui.SessionAnalysis
 import de.carcophan.snorerec.ui.theme.SnoreEpicRed
 import de.carcophan.snorerec.ui.theme.SnoreLabCyan
-import de.carcophan.snorerec.ui.theme.SnoreLabSurfaceElevated
 import de.carcophan.snorerec.ui.theme.SnoreLightYellow
 import de.carcophan.snorerec.ui.theme.SnoreLoudOrange
 import de.carcophan.snorerec.ui.theme.SnoreQuietGreen
@@ -56,8 +48,6 @@ import kotlin.math.max
 fun SnorePatternAnalysisView(
     analysis: SessionAnalysis,
     session: NightSession? = null,
-    onRatingChanged: ((Int) -> Unit)? = null,
-    onEditMetadataClicked: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -289,86 +279,7 @@ fun SnorePatternAnalysisView(
             }
         }
 
-        // 3. Morning Sleep Rating & Notes Card
-        if (session != null) {
-            Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.surfaceContainer,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Schlafgefühl & Notizen",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        if (onEditMetadataClicked != null) {
-                            IconButton(onClick = onEditMetadataClicked) {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = "Notiz bearbeiten",
-                                    tint = SnoreLabCyan
-                                )
-                            }
-                        }
-                    }
-
-                    // Morning Sleep Quality 1..5 Stars
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = "Erholung am Morgen:",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            for (star in 1..5) {
-                                val filled = star <= session.sleepRating
-                                Icon(
-                                    imageVector = if (filled) Icons.Default.Star else Icons.Outlined.StarBorder,
-                                    contentDescription = "$star Sterne",
-                                    tint = if (filled) SnoreLightYellow else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .clickable(enabled = onRatingChanged != null) {
-                                            onRatingChanged?.invoke(star)
-                                        }
-                                        .padding(2.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    if (session.note.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = SnoreLabSurfaceElevated,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = "📝 \"${session.note}\"",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.padding(10.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // 4. Hourly Snoring Distribution
+        // 3. Hourly Snoring Distribution
         if (analysis.hourlyBuckets.isNotEmpty()) {
             Surface(
                 shape = RoundedCornerShape(18.dp),

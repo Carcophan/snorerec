@@ -34,7 +34,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.BarChart
@@ -62,7 +61,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -150,7 +148,6 @@ fun SnoreAppScreen(
     // Dialog states
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showDelayedStartDialog by remember { mutableStateOf(false) }
-    var showEditSessionMetadataDialog by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -374,13 +371,7 @@ fun SnoreAppScreen(
                                     item {
                                         SnorePatternAnalysisView(
                                             analysis = analysis!!,
-                                            session = selectedSession,
-                                            onRatingChanged = { stars ->
-                                                viewModel.updateSelectedSessionMetadata(sleepRating = stars)
-                                            },
-                                            onEditMetadataClicked = {
-                                                showEditSessionMetadataDialog = true
-                                            }
+                                            session = selectedSession
                                         )
                                     }
                                 }
@@ -559,8 +550,8 @@ fun SnoreAppScreen(
                             onSensitivityChanged = { viewModel.setSensitivityOffsetDb(it) },
                             onRecordingModeChanged = { viewModel.setRecordingMode(it) },
                             onRetentionDaysChanged = { viewModel.setRetentionDays(it) },
-                            onProfileChanged = { age, height, weight, goal ->
-                                viewModel.setProfile(age, height, weight, goal)
+                            onProfileChanged = { age, goal ->
+                                viewModel.setProfile(age, goal)
                             },
                             onExportCsv = { viewModel.exportCsv(context) },
                             onSeedDemoData = {
@@ -646,46 +637,6 @@ fun SnoreAppScreen(
             confirmButton = {
                 TextButton(onClick = { showDelayedStartDialog = false }) {
                     Text("Schließen")
-                }
-            }
-        )
-    }
-
-    if (showEditSessionMetadataDialog && selectedSession != null) {
-        val sess = selectedSession!!
-        var editedNote by remember(sess.id) { mutableStateOf(sess.note) }
-
-        AlertDialog(
-            onDismissRequest = { showEditSessionMetadataDialog = false },
-            title = { Text("Nacht-Notiz bearbeiten") },
-            text = {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    OutlinedTextField(
-                        value = editedNote,
-                        onValueChange = { editedNote = it },
-                        label = { Text("Persönliche Notiz zur Nacht") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.updateSelectedSessionMetadata(
-                            note = editedNote
-                        )
-                        showEditSessionMetadataDialog = false
-                    }
-                ) {
-                    Text("Speichern")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showEditSessionMetadataDialog = false }) {
-                    Text("Abbrechen")
                 }
             }
         )

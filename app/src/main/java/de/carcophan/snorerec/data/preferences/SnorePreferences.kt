@@ -22,18 +22,10 @@ data class SnoreSettingsState(
     val recordingMode: RecordingMode = RecordingMode.ALL_SAMPLES,
     val retentionDays: Int = 14, // 7, 14, 30, 90, 365, -1 (unlimited)
     val snoreScoreGoal: Int = 25,
-    val userAge: Int = 35,
-    val userHeightCm: Int = 178,
-    val userWeightKg: Float = 78f
+    val userAge: Int = 35
 ) {
     val effectiveMinDbThreshold: Float
         get() = (42.0f + sensitivityOffsetDb).coerceIn(34.0f, 54.0f)
-
-    val bmi: Float
-        get() {
-            val heightM = userHeightCm / 100f
-            return if (heightM > 0.5f) userWeightKg / (heightM * heightM) else 0f
-        }
 }
 
 class SnorePreferences(context: Context) {
@@ -59,9 +51,7 @@ class SnorePreferences(context: Context) {
             },
             retentionDays = prefs.getInt("retention_days", 14),
             snoreScoreGoal = prefs.getInt("snore_score_goal", 25),
-            userAge = prefs.getInt("user_age", 35),
-            userHeightCm = prefs.getInt("user_height_cm", 178),
-            userWeightKg = prefs.getFloat("user_weight_kg", 78f)
+            userAge = prefs.getInt("user_age", 35)
         )
     }
 
@@ -146,10 +136,8 @@ class SnorePreferences(context: Context) {
         putInt("retention_days", days)
     }
 
-    fun setProfile(age: Int, heightCm: Int, weightKg: Float, scoreGoal: Int) = update {
+    fun setProfile(age: Int, scoreGoal: Int) = update {
         putInt("user_age", age.coerceIn(10, 110))
-        putInt("user_height_cm", heightCm.coerceIn(100, 230))
-        putFloat("user_weight_kg", weightKg.coerceIn(30f, 250f))
         putInt("snore_score_goal", scoreGoal.coerceIn(5, 100))
     }
 }

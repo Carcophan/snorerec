@@ -32,7 +32,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,9 +47,6 @@ import de.carcophan.snorerec.data.repository.StorageUsageInfo
 import de.carcophan.snorerec.ui.theme.SnoreEpicRed
 import de.carcophan.snorerec.ui.theme.SnoreLabCyan
 import de.carcophan.snorerec.ui.theme.SnoreLabSurfaceElevated
-import de.carcophan.snorerec.ui.theme.SnoreLightYellow
-import de.carcophan.snorerec.ui.theme.SnoreLoudOrange
-import de.carcophan.snorerec.ui.theme.SnoreQuietGreen
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -61,7 +57,7 @@ fun SettingsTabView(
     onSensitivityChanged: (Float) -> Unit,
     onRecordingModeChanged: (RecordingMode) -> Unit,
     onRetentionDaysChanged: (Int) -> Unit,
-    onProfileChanged: (age: Int, heightCm: Int, weightKg: Float, goal: Int) -> Unit,
+    onProfileChanged: (age: Int, goal: Int) -> Unit,
     onExportCsv: () -> Unit,
     onSeedDemoData: () -> Unit,
     onDeleteAllData: () -> Unit,
@@ -259,10 +255,8 @@ fun SettingsTabView(
             }
         }
 
-        // 4. Local Personal Profile & BMI (Persönliches Profil)
-        var age by remember(settings.userAge) { mutableIntStateOf(settings.userAge) }
-        var heightCm by remember(settings.userHeightCm) { mutableIntStateOf(settings.userHeightCm) }
-        var weightKg by remember(settings.userWeightKg) { mutableFloatStateOf(settings.userWeightKg) }
+        // 4. Local Personal Profile (Persönliches Profil)
+        val age by remember(settings.userAge) { mutableIntStateOf(settings.userAge) }
         var scoreGoal by remember(settings.snoreScoreGoal) { mutableIntStateOf(settings.snoreScoreGoal) }
 
         Surface(
@@ -271,35 +265,11 @@ fun SettingsTabView(
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "👤 Persönliches Schlaf-Profil (100% lokal)",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    val bmi = settings.bmi
-                    val bmiColor = when {
-                        bmi < 25f -> SnoreQuietGreen
-                        bmi < 30f -> SnoreLightYellow
-                        else -> SnoreLoudOrange
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = bmiColor.copy(alpha = 0.16f)
-                    ) {
-                        Text(
-                            text = String.format(Locale.getDefault(), "BMI %.1f", bmi),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = bmiColor,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
+                Text(
+                    text = "👤 Persönliches Schlaf-Profil (100% lokal)",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -308,29 +278,9 @@ fun SettingsTabView(
                     value = scoreGoal.toFloat(),
                     onValueChange = {
                         scoreGoal = it.roundToInt()
-                        onProfileChanged(age, heightCm, weightKg, scoreGoal)
+                        onProfileChanged(age, scoreGoal)
                     },
                     valueRange = 5f..80f
-                )
-
-                Text("Körpergröße: $heightCm cm", style = MaterialTheme.typography.bodySmall)
-                Slider(
-                    value = heightCm.toFloat(),
-                    onValueChange = {
-                        heightCm = it.roundToInt()
-                        onProfileChanged(age, heightCm, weightKg, scoreGoal)
-                    },
-                    valueRange = 140f..210f
-                )
-
-                Text(String.format(Locale.getDefault(), "Gewicht: %.1f kg", weightKg), style = MaterialTheme.typography.bodySmall)
-                Slider(
-                    value = weightKg,
-                    onValueChange = {
-                        weightKg = (it * 2f).roundToInt() / 2f
-                        onProfileChanged(age, heightCm, weightKg, scoreGoal)
-                    },
-                    valueRange = 45f..150f
                 )
             }
         }

@@ -10,10 +10,10 @@ Dank **On-Device Machine Learning (Google AI Edge LiteRT & YAMNet)** und Pegelan
 
 - 🌙 **Authentisches SnoreLab Midnight-Navy UI mit 5 Haupt-Tabs:**
   - **1. Aufzeichnen:** Großer animierter Start-Ring, Konfigurationskarten vor dem Schlafen (Verzögerter Start, Einschlafgeräusche, Smart-Wecker, Hilfsmittel & Faktoren) sowie Nacht-Überwachungsbildschirm mit Digitaluhr und Live-Spektrum.
-  - **2. Ergebnisse:** Horizontale Nacht-Auswahlleiste mit Schnarch-Score-Badges, großer **Schnarch-Score-Ring**, interaktives **4-Stufen-Nachtdiagramm (*Ruhe*, *Leicht*, *Laut*, *Episch*)** mit Inline-Player, Favoriten-Sternen (⭐), Schlafqualitäts-Bewertung (1–5 Sterne) und Notizen.
+  - **2. Ergebnisse:** Horizontale Nacht-Auswahlleiste mit Schnarch-Score-Badges, großer **Schnarch-Score-Ring**, interaktives **4-Stufen-Nachtdiagramm (*Ruhe*, *Leicht*, *Laut*, *Episch*)** mit Inline-Player und Favoriten-Sternen (⭐).
   - **3. Trends:** Mehrnächtige Verlaufsdiagramme (7, 30, 90, Alle Nächte), Durchschnittswerte, **Hilfsmittel-Wirksamkeitsanalyse** (prozentuale Score-Reduktion gegenüber Nächten ohne Hilfsmittel) und **Faktoren-Einflussanalyse**.
   - **4. Hilfsmittel & Ratgeber:** Verwaltung vordefinierter und eigener Hilfsmittel (Seitenschlaf, Nasenpflaster, Nasenspray, Mundpflaster, Schnarchschiene, Keilkissen, Luftbefeuchter, CPAP u.v.m.) & Faktoren (Alkohol, Rückenschlaf, Erkältung, Übermüdung, Spätes Essen) inklusive integriertem Schnarch-Wissensratgeber.
-  - **5. Profil & Einstellungen:** Mikrofon-Empfindlichkeitskalibrierung (`-8 dB` bis `+8 dB`), Aufnahmemodus-Wahl, Speicherplatz-Anzeige mit automatischem Cleanup (Favoriten ⭐ sind geschützt), lokales Schlafprofil mit BMI-Rechner, **CSV-Export** und **Demo-Daten-Generator (10 Beispiel-Nächte)**.
+  - **5. Profil & Einstellungen:** Mikrofon-Empfindlichkeitskalibrierung (`-8 dB` bis `+8 dB`), Aufnahmemodus-Wahl, Speicherplatz-Anzeige mit automatischem Cleanup (Favoriten ⭐ sind geschützt), lokales Schlafprofil, **CSV-Export** und **Demo-Daten-Generator (10 Beispiel-Nächte)**.
 - 🌊 **Prozedurale Einschlafgeräusche (Sleep Sounds):**
   - Direkt in Echtzeit über `AudioTrack` synthetisierte Einschlafklänge (*Sanfter Nachtregen*, *Meereswellen*, *Warmes Rosa Rauschen*, *Nachtwind im Wald*, *Tiefer 110-Hz-Schlafklang*) mit sanftem Fade-Out vor Überwachungsbeginn.
 - ⏰ **Verzögerter Start & Smart-Wecker:**
