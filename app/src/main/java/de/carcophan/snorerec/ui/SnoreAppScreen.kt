@@ -155,6 +155,7 @@ fun SnoreAppScreen(
     val playingEventId by viewModel.playingEventId.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
     val playbackProgress by viewModel.playbackProgress.collectAsStateWithLifecycle()
+    val playbackDurationMs by viewModel.playbackDurationMs.collectAsStateWithLifecycle()
 
     val isPreviewingSleepSound by viewModel.isPreviewingSleepSound.collectAsStateWithLifecycle()
     val previewingSoundType by viewModel.previewingSoundType.collectAsStateWithLifecycle()
@@ -379,9 +380,19 @@ fun SnoreAppScreen(
                                         selectedEventId = playingEventId,
                                         isPlaying = isPlaying,
                                         playbackProgress = playbackProgress,
+                                        playbackDurationMs = playbackDurationMs,
                                         onEventSelected = { event ->
                                             event.audioFilePath?.let { path ->
                                                 viewModel.playAudio(event.id, path)
+                                            }
+                                        },
+                                        onSeekEvent = { event, progress ->
+                                            event.audioFilePath?.let { path ->
+                                                viewModel.seekAudio(
+                                                    progress = progress,
+                                                    eventId = event.id,
+                                                    filePath = path
+                                                )
                                             }
                                         },
                                         onToggleBookmark = { event ->
@@ -521,7 +532,9 @@ fun SnoreAppScreen(
                                         SnoreEventCard(
                                             event = event,
                                             isPlaying = playingEventId == event.id && isPlaying,
+                                            isActive = playingEventId == event.id,
                                             progress = if (playingEventId == event.id) playbackProgress else 0f,
+                                            playbackDurationMs = if (playingEventId == event.id) playbackDurationMs else 0L,
                                             onPlayToggle = {
                                                 event.audioFilePath?.let { path ->
                                                     if (autoPlayNextClips) {
@@ -531,6 +544,20 @@ fun SnoreAppScreen(
                                                     } else {
                                                         viewModel.playAudio(event.id, path)
                                                     }
+                                                }
+                                            },
+                                            onSeek = { progress ->
+                                                event.audioFilePath?.let { path ->
+                                                    viewModel.seekAudio(
+                                                        progress = progress,
+                                                        eventId = event.id,
+                                                        filePath = path,
+                                                        onFinished = if (autoPlayNextClips) {
+                                                            { viewModel.playNextEventInList(event.id, filteredEvents) }
+                                                        } else {
+                                                            null
+                                                        }
+                                                    )
                                                 }
                                             },
                                             onBookmarkToggle = { viewModel.toggleBookmark(event) },

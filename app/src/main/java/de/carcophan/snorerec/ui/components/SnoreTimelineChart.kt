@@ -26,7 +26,6 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -71,7 +70,9 @@ fun SnoreTimelineChart(
     selectedEventId: Long?,
     isPlaying: Boolean = false,
     playbackProgress: Float = 0f,
+    playbackDurationMs: Long = 0L,
     onEventSelected: (SnoreEvent) -> Unit,
+    onSeekEvent: ((SnoreEvent, Float) -> Unit)? = null,
     onToggleBookmark: ((SnoreEvent) -> Unit)? = null,
     onDeleteEvent: ((SnoreEvent) -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -408,15 +409,20 @@ fun SnoreTimelineChart(
                             }
                         }
 
-                        if (isCurrentPlaying) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            LinearProgressIndicator(
-                                progress = { playbackProgress },
-                                color = SnoreLabCyan,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(5.dp)
-                                    .clip(RoundedCornerShape(3.dp))
+                        val isActiveClip = selectedEventId == activeEvent.id
+                        if (activeEvent.audioFilePath != null && (isActiveClip || onSeekEvent != null)) {
+                            val effectiveDurationMs = if (isActiveClip && playbackDurationMs > 0L) {
+                                playbackDurationMs
+                            } else {
+                                activeEvent.durationMs
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            AudioSeekBar(
+                                progress = if (isActiveClip) playbackProgress else 0f,
+                                durationMs = effectiveDurationMs,
+                                onSeek = { newProgress ->
+                                    onSeekEvent?.invoke(activeEvent, newProgress)
+                                }
                             )
                         }
                     }

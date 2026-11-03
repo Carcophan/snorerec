@@ -23,12 +23,17 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,8 +53,11 @@ import java.util.Locale
 fun SnoreEventCard(
     event: SnoreEvent,
     isPlaying: Boolean,
+    isActive: Boolean = isPlaying,
     progress: Float,
+    playbackDurationMs: Long = 0L,
     onPlayToggle: () -> Unit,
+    onSeek: ((Float) -> Unit)? = null,
     onBookmarkToggle: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -177,19 +185,82 @@ fun SnoreEventCard(
                 }
             }
 
-            if (isPlaying) {
-                Spacer(modifier = Modifier.height(8.dp))
-                LinearProgressIndicator(
-                    progress = { progress },
-                    color = SnoreLabCyan,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
+            if (event.audioFilePath != null && (isActive || onSeek != null)) {
+                val effectiveDurationMs = if (isActive && playbackDurationMs > 0L) {
+                    playbackDurationMs
+                } else {
+                    event.durationMs
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                AudioSeekBar(
+                    progress = if (isActive) progress else 0f,
+                    durationMs = effectiveDurationMs,
+                    onSeek = { newProgress -> onSeek?.invoke(newProgress) }
                 )
             }
         }
     }
+}
+
+@Composable
+fun AudioSeekBar(
+    progress: Float,
+    durationMs: Long,
+    onSeek: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var isDragging by remember { mutableStateOf(false) }
+    var dragProgress by remember { mutableFloatStateOf(0f) }
+
+    val currentProgress = (if (isDragging) dragProgress else progress).coerceIn(0f, 1f)
+    val safeDurationMs = durationMs.coerceAtLeast(0L)
+    val currentPosMs = (currentProgress * safeDurationMs).toLong()
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = formatPlaybackTime(currentPosMs),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Slider(
+            value = currentProgress,
+            onValueChange = { newValue ->
+                isDragging = true
+                dragProgress = newValue
+                onSeek(newValue)
+            },
+            onValueChangeFinished = {
+                isDragging = false
+                onSeek(dragProgress)
+            },
+            valueRange = 0f..1f,
+            colors = SliderDefaults.colors(
+                thumbColor = SnoreLabCyan,
+                activeTrackColor = SnoreLabCyan,
+                inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+            ),
+            modifier = Modifier
+                .weight(1f)
+                .height(28.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = formatPlaybackTime(safeDurationMs),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+private fun formatPlaybackTime(ms: Long): String {
+    val totalSeconds = (ms / 1000L).coerceAtLeast(0L)
+    val minutes = totalSeconds / 60L
+    val seconds = totalSeconds % 60L
+    return String.format(Locale.getDefault(), "%d:%02d", minutes, seconds)
 }
 
 private fun formatEventDuration(durationMs: Long): String {

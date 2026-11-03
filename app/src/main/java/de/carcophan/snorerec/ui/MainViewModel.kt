@@ -121,6 +121,7 @@ class MainViewModel : ViewModel() {
     val playingEventId: StateFlow<Long?> = audioPlayer.playingEventId
     val isPlaying: StateFlow<Boolean> = audioPlayer.isPlaying
     val playbackProgress: StateFlow<Float> = audioPlayer.playbackProgress
+    val playbackDurationMs: StateFlow<Long> = audioPlayer.playbackDurationMs
 
     val isPreviewingSleepSound: StateFlow<Boolean> = previewSoundGenerator.isPlaying
     val previewingSoundType: StateFlow<SleepSoundType> = previewSoundGenerator.activeSound
@@ -243,6 +244,21 @@ class MainViewModel : ViewModel() {
     fun playAudio(eventId: Long, filePath: String, onFinished: (() -> Unit)? = null) {
         stopPreviewSleepSound()
         audioPlayer.play(eventId, filePath, onFinished)
+    }
+
+    fun seekAudio(
+        progress: Float,
+        eventId: Long? = null,
+        filePath: String? = null,
+        onFinished: (() -> Unit)? = null
+    ) {
+        stopPreviewSleepSound()
+        audioPlayer.seekTo(
+            progress = progress,
+            eventId = eventId,
+            filePath = filePath,
+            onFinished = onFinished
+        )
     }
 
     fun playNextEventInList(currentEventId: Long, events: List<SnoreEvent>) {
