@@ -7,6 +7,10 @@ import de.carcophan.snorerec.audio.SnoreEventResult
 import de.carcophan.snorerec.audio.WavAudioWriter
 import de.carcophan.snorerec.data.model.NightSession
 import de.carcophan.snorerec.data.model.SnoreIntensity
+import de.carcophan.snorerec.ui.components.MAX_TIMELINE_ZOOM
+import de.carcophan.snorerec.ui.components.MIN_TIMELINE_ZOOM
+import de.carcophan.snorerec.ui.components.computePinchZoomViewport
+import de.carcophan.snorerec.ui.components.computeTimeAxisStepMs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -246,5 +250,63 @@ class SnoreRecUnitTest {
         val negativeLoudSample: Short = -10000
         val boostedNegativeLoud = AudioConfig.amplifySample(negativeLoudSample)
         assertTrue("Expected soft-limited negative peak < -24000, got $boostedNegativeLoud", boostedNegativeLoud < -24000)
+    }
+
+    @Test
+    fun timelinePinchZoom_anchorsFocalPointAndClampsBounds() {
+        // Zoom in 2x centered at the middle of the chart (0.5f)
+        val zoomedIn = computePinchZoomViewport(
+            currentZoom = 1f,
+            currentStartFraction = 0f,
+            zoomChange = 2f,
+            panXInPlotFraction = 0f,
+            focalFractionInPlot = 0.5f
+        )
+        assertEquals(2f, zoomedIn.zoomLevel, 0.001f)
+        // At 2x zoom, visible span is 0.5 of the night; centered around 0.5 means start is 0.25
+        assertEquals(0.25f, zoomedIn.viewStartFraction, 0.001f)
+
+        // Zoom in another 2x (total 4x) at the same center point (0.5f in plot -> 0.5f of night)
+        val zoomedMore = computePinchZoomViewport(
+            currentZoom = zoomedIn.zoomLevel,
+            currentStartFraction = zoomedIn.viewStartFraction,
+            zoomChange = 2f,
+            panXInPlotFraction = 0f,
+            focalFractionInPlot = 0.5f
+        )
+        assertEquals(4f, zoomedMore.zoomLevel, 0.001f)
+        // Visible span is 0.25; centered around 0.5 means start is 0.375
+        assertEquals(0.375f, zoomedMore.viewStartFraction, 0.001f)
+
+        // Zoom out back to 1x clamps start fraction to 0f and zoom to MIN_TIMELINE_ZOOM
+        val zoomedOut = computePinchZoomViewport(
+            currentZoom = zoomedMore.zoomLevel,
+            currentStartFraction = zoomedMore.viewStartFraction,
+            zoomChange = 0.1f,
+            panXInPlotFraction = 0f,
+            focalFractionInPlot = 0.5f
+        )
+        assertEquals(MIN_TIMELINE_ZOOM, zoomedOut.zoomLevel, 0.001f)
+        assertEquals(0f, zoomedOut.viewStartFraction, 0.001f)
+
+        // Extreme zoom clamps to MAX_TIMELINE_ZOOM and keeps start within [0, 1 - 1/maxZoom]
+        val maxedOut = computePinchZoomViewport(
+            currentZoom = 10f,
+            currentStartFraction = 0.85f,
+            zoomChange = 5f,
+            panXInPlotFraction = -0.5f,
+            focalFractionInPlot = 0.9f
+        )
+        assertEquals(MAX_TIMELINE_ZOOM, maxedOut.zoomLevel, 0.001f)
+        assertTrue(maxedOut.viewStartFraction in 0f..(1f - 1f / MAX_TIMELINE_ZOOM))
+    }
+
+    @Test
+    fun timelineAxisStep_adaptsToZoomedVisibleSpan() {
+        assertEquals(2 * 3600_000L, computeTimeAxisStepMs(11 * 3600_000L))
+        assertEquals(3600_000L, computeTimeAxisStepMs(6 * 3600_000L))
+        assertEquals(15 * 60_000L, computeTimeAxisStepMs(90 * 60_000L))
+        assertEquals(5 * 60_000L, computeTimeAxisStepMs(30 * 60_000L))
+        assertEquals(60_000L, computeTimeAxisStepMs(5 * 60_000L))
     }
 }
