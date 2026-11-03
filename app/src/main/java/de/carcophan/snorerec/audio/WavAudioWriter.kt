@@ -26,7 +26,7 @@ class WavAudioWriter(
 
         val byteBuffer = ByteBuffer.allocate(count * 2).order(ByteOrder.LITTLE_ENDIAN)
         for (i in 0 until count) {
-            byteBuffer.putShort(samples[offset + i])
+            byteBuffer.putShort(AudioConfig.amplifySample(samples[offset + i]))
         }
         file.write(byteBuffer.array())
         payloadBytesWritten += count * 2

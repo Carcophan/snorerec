@@ -1,6 +1,7 @@
 package de.carcophan.snorerec.audio
 
 import android.media.AudioFormat
+import kotlin.math.tanh
 
 object AudioConfig {
     const val SAMPLE_RATE = 16000
@@ -27,4 +28,25 @@ object AudioConfig {
     const val YAMNET_SNORING_INDEX = 38
     const val YAMNET_SNORT_INDEX = 41
     const val YAMNET_SNORE_THRESHOLD = 0.15f // 15% confidence threshold for snore detection
+
+    // Audio Recording & Playback Gain (SnoreLab-style boost for nightstand distance)
+    const val RECORDING_GAIN_FACTOR = 8.0f // ~+18 dB software pre-amp for saved audio clips
+    const val PLAYBACK_LOUDNESS_BOOST_MB = 1200 // +12 dB (1200 mB) LoudnessEnhancer boost on playback
+
+    /**
+     * Amplifies a raw 16-bit PCM microphone sample for file storage with a soft-knee limiter
+     * so quiet/moderate nightstand recordings become clearly audible without harsh clipping on loud peaks.
+     */
+    fun amplifySample(sample: Short, gain: Float = RECORDING_GAIN_FACTOR): Short {
+        val amplified = sample.toFloat() * gain
+        val knee = 24000f
+        val maxVal = 32767f
+        val headroom = maxVal - knee
+        val limited = when {
+            amplified > knee -> knee + headroom * tanh((amplified - knee) / headroom)
+            amplified < -knee -> -knee - headroom * tanh((-amplified - knee) / headroom)
+            else -> amplified
+        }
+        return limited.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+    }
 }

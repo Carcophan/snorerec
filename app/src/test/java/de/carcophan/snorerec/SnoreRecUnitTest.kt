@@ -230,4 +230,21 @@ class SnoreRecUnitTest {
         assertTrue("Mild score ($mildScore) should be > 0", mildScore > 0)
         assertTrue("Epic score ($epicScore) must be significantly higher than mild score ($mildScore)", epicScore > mildScore * 3)
     }
+
+    @Test
+    fun amplifySample_boostsQuietSamplesAndSoftLimitsLoudPeaks() {
+        // Quiet nightstand snore sample (~500 out of 32767) should be amplified linearly by RECORDING_GAIN_FACTOR (8x -> 4000)
+        val quietSample: Short = 500
+        val boostedQuiet = AudioConfig.amplifySample(quietSample)
+        assertEquals(4000.toShort(), boostedQuiet)
+
+        // Very loud sample (10000 * 8 = 80000 > 32767) should be smoothly soft-limited below 32767 without integer overflow
+        val loudSample: Short = 10000
+        val boostedLoud = AudioConfig.amplifySample(loudSample)
+        assertTrue("Expected soft-limited positive peak > 24000, got $boostedLoud", boostedLoud > 24000)
+
+        val negativeLoudSample: Short = -10000
+        val boostedNegativeLoud = AudioConfig.amplifySample(negativeLoudSample)
+        assertTrue("Expected soft-limited negative peak < -24000, got $boostedNegativeLoud", boostedNegativeLoud < -24000)
+    }
 }

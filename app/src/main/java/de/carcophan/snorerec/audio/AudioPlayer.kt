@@ -1,6 +1,7 @@
 package de.carcophan.snorerec.audio
 
 import android.media.MediaPlayer
+import android.media.audiofx.LoudnessEnhancer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -15,6 +16,7 @@ import java.io.File
 class AudioPlayer(private val scope: CoroutineScope) {
 
     private var mediaPlayer: MediaPlayer? = null
+    private var loudnessEnhancer: LoudnessEnhancer? = null
     private var progressJob: Job? = null
     private var currentOnFinished: (() -> Unit)? = null
 
@@ -50,14 +52,16 @@ class AudioPlayer(private val scope: CoroutineScope) {
             currentOnFinished = onFinished
             val player = MediaPlayer().apply {
                 setDataSource(filePath)
+                setVolume(1.0f, 1.0f)
                 prepare()
                 setOnCompletionListener {
                     val callback = currentOnFinished
                     stop()
                     callback?.invoke()
                 }
-                start()
             }
+            attachLoudnessEnhancer(player.audioSessionId)
+            player.start()
             mediaPlayer = player
             _playingEventId.value = eventId
             _isPlaying.value = true
@@ -107,6 +111,7 @@ class AudioPlayer(private val scope: CoroutineScope) {
                 currentOnFinished = onFinished
                 val player = MediaPlayer().apply {
                     setDataSource(filePath)
+                    setVolume(1.0f, 1.0f)
                     prepare()
                     val duration = duration.coerceAtLeast(0)
                     if (duration > 0) {
@@ -117,8 +122,9 @@ class AudioPlayer(private val scope: CoroutineScope) {
                         stop()
                         callback?.invoke()
                     }
-                    start()
                 }
+                attachLoudnessEnhancer(player.audioSessionId)
+                player.start()
                 mediaPlayer = player
                 _playingEventId.value = eventId
                 _isPlaying.value = true
@@ -161,10 +167,33 @@ class AudioPlayer(private val scope: CoroutineScope) {
         }
     }
 
+    private fun attachLoudnessEnhancer(audioSessionId: Int) {
+        releaseLoudnessEnhancer()
+        if (audioSessionId == 0) return
+        try {
+            loudnessEnhancer = LoudnessEnhancer(audioSessionId).apply {
+                setTargetGain(AudioConfig.PLAYBACK_LOUDNESS_BOOST_MB)
+                enabled = true
+            }
+        } catch (_: Exception) {
+            loudnessEnhancer = null
+        }
+    }
+
+    private fun releaseLoudnessEnhancer() {
+        try {
+            loudnessEnhancer?.enabled = false
+            loudnessEnhancer?.release()
+        } catch (_: Exception) {}
+        loudnessEnhancer = null
+    }
+
     fun stop() {
         progressJob?.cancel()
         progressJob = null
         currentOnFinished = null
+
+        releaseLoudnessEnhancer()
 
         try {
             mediaPlayer?.stop()
