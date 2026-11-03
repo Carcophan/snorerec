@@ -12,29 +12,8 @@ enum class RecordingMode(val label: String, val description: String) {
     METRICS_ONLY("Nur Analyse (ohne Audio)", "Berechnet Score & Diagramm, speichert aber keine Audiodateien.")
 }
 
-enum class SleepSoundType(val id: String, val title: String, val iconEmoji: String, val subtitle: String) {
-    NONE("none", "Aus", "🔇", "Kein Einschlafgeräusch"),
-    RAIN("rain", "Sanfter Nachtregen", "🌧️", "Beruhigendes Regenprasseln"),
-    WAVES("waves", "Meereswellen", "🌊", "Rhythmische Brandung am Strand"),
-    PINK_NOISE("pink_noise", "Warmes Rauschen", "☁️", "Gleichmäßiges Rosa Rauschen zum Ausblenden von Geräuschen"),
-    WIND("wind", "Nachtwind im Wald", "🍃", "Sanft ziehender Wind durch Baumkronen"),
-    DEEP_DRONE("deep_drone", "Tiefer Schlafklang", "🌌", "Entspannende harmonische 110-Hz-Klangfläche");
-
-    companion object {
-        fun fromId(id: String): SleepSoundType = entries.find { it.id == id } ?: NONE
-    }
-}
-
 data class SnoreSettingsState(
     val delayedStartMinutes: Int = 0,
-    val sleepSoundType: SleepSoundType = SleepSoundType.NONE,
-    val sleepSoundDurationMinutes: Int = 15,
-    val sleepSoundVolume: Float = 0.5f,
-    val alarmEnabled: Boolean = false,
-    val alarmHour: Int = 7,
-    val alarmMinute: Int = 0,
-    val smartAlarmWindowMinutes: Int = 15,
-    val alarmVibrate: Boolean = true,
     val selectedRemedies: Set<String> = emptySet(),
     val selectedFactors: Set<String> = emptySet(),
     val customRemedies: Set<String> = emptySet(),
@@ -68,14 +47,6 @@ class SnorePreferences(context: Context) {
     private fun loadState(): SnoreSettingsState {
         return SnoreSettingsState(
             delayedStartMinutes = prefs.getInt("delayed_start_min", 0),
-            sleepSoundType = SleepSoundType.fromId(prefs.getString("sleep_sound_id", "none") ?: "none"),
-            sleepSoundDurationMinutes = prefs.getInt("sleep_sound_dur_min", 15),
-            sleepSoundVolume = prefs.getFloat("sleep_sound_vol", 0.5f),
-            alarmEnabled = prefs.getBoolean("alarm_enabled", false),
-            alarmHour = prefs.getInt("alarm_hour", 7),
-            alarmMinute = prefs.getInt("alarm_minute", 0),
-            smartAlarmWindowMinutes = prefs.getInt("smart_alarm_window", 15),
-            alarmVibrate = prefs.getBoolean("alarm_vibrate", true),
             selectedRemedies = prefs.getStringSet("selected_remedies", emptySet())?.toSet() ?: emptySet(),
             selectedFactors = prefs.getStringSet("selected_factors", emptySet())?.toSet() ?: emptySet(),
             customRemedies = prefs.getStringSet("custom_remedies", emptySet())?.toSet() ?: emptySet(),
@@ -101,20 +72,6 @@ class SnorePreferences(context: Context) {
 
     fun setDelayedStartMinutes(minutes: Int) = update {
         putInt("delayed_start_min", minutes.coerceIn(0, 120))
-    }
-
-    fun setSleepSound(type: SleepSoundType, durationMinutes: Int = _state.value.sleepSoundDurationMinutes, volume: Float = _state.value.sleepSoundVolume) = update {
-        putString("sleep_sound_id", type.id)
-        putInt("sleep_sound_dur_min", durationMinutes)
-        putFloat("sleep_sound_vol", volume.coerceIn(0.05f, 1.0f))
-    }
-
-    fun setAlarm(enabled: Boolean, hour: Int = _state.value.alarmHour, minute: Int = _state.value.alarmMinute, smartWindowMinutes: Int = _state.value.smartAlarmWindowMinutes, vibrate: Boolean = _state.value.alarmVibrate) = update {
-        putBoolean("alarm_enabled", enabled)
-        putInt("alarm_hour", hour.coerceIn(0, 23))
-        putInt("alarm_minute", minute.coerceIn(0, 59))
-        putInt("smart_alarm_window", smartWindowMinutes.coerceIn(0, 60))
-        putBoolean("alarm_vibrate", vibrate)
     }
 
     fun toggleRemedyForTonight(remedyName: String) {

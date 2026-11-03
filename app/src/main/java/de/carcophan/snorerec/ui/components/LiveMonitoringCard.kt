@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
@@ -48,7 +47,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import de.carcophan.snorerec.data.preferences.SleepSoundType
 import de.carcophan.snorerec.ui.theme.SnoreEpicRed
 import de.carcophan.snorerec.ui.theme.SnoreLabCyan
 import de.carcophan.snorerec.ui.theme.SnoreLabSurfaceElevated
@@ -69,12 +67,6 @@ fun LiveMonitoringCard(
     isInDelayedStart: Boolean = false,
     delayedStartRemainingSeconds: Int = 0,
     onSkipDelayClicked: (() -> Unit)? = null,
-    isAlarmRinging: Boolean = false,
-    onDismissAlarmClicked: (() -> Unit)? = null,
-    alarmEnabled: Boolean = false,
-    alarmHour: Int = 7,
-    alarmMinute: Int = 0,
-    sleepSoundType: SleepSoundType = SleepSoundType.NONE,
     modifier: Modifier = Modifier
 ) {
     var currentTimeMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -116,56 +108,28 @@ fun LiveMonitoringCard(
             modifier = Modifier.padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top Status Row: Active indicator + Alarm badge
+            // Top Status Row: Active indicator
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.Start,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(12.dp)
-                            .scale(pulseScale)
-                            .background(
-                                if (isInDelayedStart) SnoreLightYellow else SnoreEpicRed,
-                                CircleShape
-                            )
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = if (isInDelayedStart) "Verzögerter Start aktiv" else "Schnarchüberwachung aktiv",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                if (alarmEnabled) {
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = SnoreLabSurfaceElevated
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Alarm,
-                                contentDescription = null,
-                                tint = SnoreLabCyan,
-                                modifier = Modifier.size(15.dp)
-                            )
-                            Spacer(modifier = Modifier.width(5.dp))
-                            Text(
-                                text = String.format(Locale.getDefault(), "%02d:%02d", alarmHour, alarmMinute),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = SnoreLabCyan,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .scale(pulseScale)
+                        .background(
+                            if (isInDelayedStart) SnoreLightYellow else SnoreEpicRed,
+                            CircleShape
+                        )
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = if (isInDelayedStart) "Verzögerter Start aktiv" else "Schnarchüberwachung aktiv",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             }
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -177,34 +141,6 @@ fun LiveMonitoringCard(
                 fontWeight = FontWeight.Light,
                 color = MaterialTheme.colorScheme.onSurface
             )
-
-            if (isAlarmRinging) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = SnoreLabCyan.copy(alpha = 0.2f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "⏰ Guten Morgen! Wecker klingelt",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = SnoreLabCyan
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Button(
-                            onClick = { onDismissAlarmClicked?.invoke() },
-                            colors = ButtonDefaults.buttonColors(containerColor = SnoreLabCyan)
-                        ) {
-                            Text("Wecker stummschalten")
-                        }
-                    }
-                }
-            }
 
             Spacer(modifier = Modifier.height(18.dp))
 
@@ -233,14 +169,6 @@ fun LiveMonitoringCard(
                             fontWeight = FontWeight.Bold,
                             color = SnoreLightYellow
                         )
-                        if (sleepSoundType != SleepSoundType.NONE) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "${sleepSoundType.iconEmoji} Einschlafklang: ${sleepSoundType.title}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = SnoreLabCyan
-                            )
-                        }
                         if (onSkipDelayClicked != null) {
                             Spacer(modifier = Modifier.height(12.dp))
                             FilledTonalButton(onClick = onSkipDelayClicked) {

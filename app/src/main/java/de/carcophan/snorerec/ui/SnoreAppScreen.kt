@@ -37,7 +37,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ShowChart
-import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
@@ -45,10 +44,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.NightsStay
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
@@ -68,15 +64,12 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -97,7 +90,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import de.carcophan.snorerec.data.model.NightSession
 import de.carcophan.snorerec.data.model.SnoreIntensity
-import de.carcophan.snorerec.data.preferences.SleepSoundType
 import de.carcophan.snorerec.data.preferences.SnoreSettingsState
 import de.carcophan.snorerec.ui.components.LiveMonitoringCard
 import de.carcophan.snorerec.ui.components.SettingsTabView
@@ -109,7 +101,6 @@ import de.carcophan.snorerec.ui.theme.SnoreLabBgDark
 import de.carcophan.snorerec.ui.theme.SnoreLabCyan
 import de.carcophan.snorerec.ui.theme.SnoreLabSurface
 import de.carcophan.snorerec.ui.theme.SnoreLabSurfaceElevated
-import de.carcophan.snorerec.ui.theme.SnoreLightYellow
 import de.carcophan.snorerec.ui.theme.SnoreQuietGreen
 import de.carcophan.snorerec.ui.theme.snoreScoreColor
 import java.text.SimpleDateFormat
@@ -138,7 +129,6 @@ fun SnoreAppScreen(
     val delayedStartRemainingSeconds by viewModel.delayedStartRemainingSeconds.collectAsStateWithLifecycle()
     val currentDb by viewModel.currentDb.collectAsStateWithLifecycle()
     val liveSnoreCount by viewModel.liveSnoreCount.collectAsStateWithLifecycle()
-    val isAlarmRinging by viewModel.isAlarmRinging.collectAsStateWithLifecycle()
 
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()
     val selectedSession by viewModel.selectedSession.collectAsStateWithLifecycle()
@@ -151,9 +141,6 @@ fun SnoreAppScreen(
     val playbackProgress by viewModel.playbackProgress.collectAsStateWithLifecycle()
     val playbackDurationMs by viewModel.playbackDurationMs.collectAsStateWithLifecycle()
 
-    val isPreviewingSleepSound by viewModel.isPreviewingSleepSound.collectAsStateWithLifecycle()
-    val previewingSoundType by viewModel.previewingSoundType.collectAsStateWithLifecycle()
-
     var currentBottomTab by remember { mutableStateOf(MainBottomTab.RECORD) }
     var resultsSubTab by remember { mutableIntStateOf(0) } // 0: Diagramm & Analyse, 1: Audio-Aufnahmen
     var selectedClipFilter by remember { mutableStateOf(AudioClipFilter.ALL) }
@@ -163,8 +150,6 @@ fun SnoreAppScreen(
     // Dialog states
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showDelayedStartDialog by remember { mutableStateOf(false) }
-    var showSleepSoundDialog by remember { mutableStateOf(false) }
-    var showAlarmDialog by remember { mutableStateOf(false) }
     var showEditSessionMetadataDialog by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -236,7 +221,6 @@ fun SnoreAppScreen(
                     NavigationBarItem(
                         selected = selected,
                         onClick = {
-                            viewModel.stopPreviewSleepSound()
                             currentBottomTab = tab
                         },
                         icon = {
@@ -284,13 +268,7 @@ fun SnoreAppScreen(
                                 },
                                 isInDelayedStart = isInDelayedStart,
                                 delayedStartRemainingSeconds = delayedStartRemainingSeconds,
-                                onSkipDelayClicked = { viewModel.skipDelayedStart(context) },
-                                isAlarmRinging = isAlarmRinging,
-                                onDismissAlarmClicked = { viewModel.dismissAlarm(context) },
-                                alarmEnabled = settings.alarmEnabled,
-                                alarmHour = settings.alarmHour,
-                                alarmMinute = settings.alarmMinute,
-                                sleepSoundType = settings.sleepSoundType
+                                onSkipDelayClicked = { viewModel.skipDelayedStart(context) }
                             )
                         } else {
                             SnoreLabRecordSetupView(
@@ -306,8 +284,6 @@ fun SnoreAppScreen(
                                     permissionLauncher.launch(perms)
                                 },
                                 onOpenDelayedStart = { showDelayedStartDialog = true },
-                                onOpenSleepSounds = { showSleepSoundDialog = true },
-                                onOpenAlarm = { showAlarmDialog = true },
                                 onOpenLatestResult = {
                                     currentBottomTab = MainBottomTab.RESULTS
                                 },
@@ -675,186 +651,6 @@ fun SnoreAppScreen(
         )
     }
 
-    if (showSleepSoundDialog) {
-        var selectedType by remember(settings.sleepSoundType) { mutableStateOf(settings.sleepSoundType) }
-        var selectedDur by remember(settings.sleepSoundDurationMinutes) { mutableIntStateOf(settings.sleepSoundDurationMinutes) }
-        var selectedVol by remember(settings.sleepSoundVolume) { mutableFloatStateOf(settings.sleepSoundVolume) }
-
-        AlertDialog(
-            onDismissRequest = {
-                viewModel.stopPreviewSleepSound()
-                showSleepSoundDialog = false
-            },
-            title = { Text("🌊 Einschlafgeräusche") },
-            text = {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "Spielt während des verzögerten Starts beruhigende Klänge ab und blendet sie vor Beginn der Aufnahme sanft aus.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    SleepSoundType.entries.forEach { sound ->
-                        val isSelected = selectedType == sound
-                        val isThisPlaying = isPreviewingSleepSound && previewingSoundType == sound
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isSelected) SnoreLabSurfaceElevated else MaterialTheme.colorScheme.surfaceContainer,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    selectedType = sound
-                                    viewModel.setSleepSound(sound, selectedDur, selectedVol)
-                                    if (sound == SleepSoundType.NONE) {
-                                        viewModel.stopPreviewSleepSound()
-                                    }
-                                }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                    Text(sound.iconEmoji, fontSize = 20.sp)
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Column {
-                                        Text(
-                                            text = sound.title,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                            color = if (isSelected) SnoreLabCyan else MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            text = sound.subtitle,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                                if (sound != SleepSoundType.NONE) {
-                                    IconButton(
-                                        onClick = {
-                                            selectedType = sound
-                                            viewModel.setSleepSound(sound, selectedDur, selectedVol)
-                                            viewModel.togglePreviewSleepSound(sound, selectedVol)
-                                        }
-                                    ) {
-                                        Icon(
-                                            imageVector = if (isThisPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                            contentDescription = "Vorschau",
-                                            tint = SnoreLabCyan
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if (selectedType != SleepSoundType.NONE) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("Lautstärke: ${(selectedVol * 100).toInt()}%", style = MaterialTheme.typography.labelMedium)
-                        Slider(
-                            value = selectedVol,
-                            onValueChange = {
-                                selectedVol = it
-                                viewModel.setSleepSound(selectedType, selectedDur, it)
-                            },
-                            valueRange = 0.1f..1.0f
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.stopPreviewSleepSound()
-                        if (selectedType != SleepSoundType.NONE && settings.delayedStartMinutes == 0) {
-                            viewModel.setDelayedStartMinutes(15)
-                        }
-                        showSleepSoundDialog = false
-                    }
-                ) {
-                    Text("Fertig")
-                }
-            }
-        )
-    }
-
-    if (showAlarmDialog) {
-        var enabled by remember(settings.alarmEnabled) { mutableStateOf(settings.alarmEnabled) }
-        var hour by remember(settings.alarmHour) { mutableIntStateOf(settings.alarmHour) }
-        var minute by remember(settings.alarmMinute) { mutableIntStateOf(settings.alarmMinute) }
-        var smartWin by remember(settings.smartAlarmWindowMinutes) { mutableIntStateOf(settings.smartAlarmWindowMinutes) }
-
-        AlertDialog(
-            onDismissRequest = { showAlarmDialog = false },
-            title = { Text("⏰ Wecker & Smart-Alarm") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Wecker aktivieren", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                        Switch(checked = enabled, onCheckedChange = { enabled = it })
-                    }
-
-                    Text(
-                        text = String.format(Locale.getDefault(), "Weckzeit: %02d:%02d Uhr", hour, minute),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = SnoreLabCyan,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Text("Stunde: $hour", style = MaterialTheme.typography.labelSmall)
-                    Slider(
-                        value = hour.toFloat(),
-                        onValueChange = { hour = it.toInt() },
-                        valueRange = 0f..23f,
-                        steps = 22
-                    )
-
-                    Text("Minute: ${String.format(Locale.getDefault(), "%02d", minute)}", style = MaterialTheme.typography.labelSmall)
-                    Slider(
-                        value = minute.toFloat(),
-                        onValueChange = { minute = (it.toInt() / 5) * 5 },
-                        valueRange = 0f..55f,
-                        steps = 10
-                    )
-
-                    Text(
-                        text = "Smart-Wakeup-Fenster: ${if (smartWin == 0) "Aus (Exakt)" else "$smartWin Min. vorher bei leichtem Schlaf"}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(0, 10, 15, 30).forEach { w ->
-                            FilterChip(
-                                selected = smartWin == w,
-                                onClick = { smartWin = w },
-                                label = { Text(if (w == 0) "Exakt" else "${w}m") }
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.setAlarm(enabled, hour, minute, smartWin, true)
-                        showAlarmDialog = false
-                    }
-                ) {
-                    Text("Speichern")
-                }
-            }
-        )
-    }
-
     if (showEditSessionMetadataDialog && selectedSession != null) {
         val sess = selectedSession!!
         var editedNote by remember(sess.id) { mutableStateOf(sess.note) }
@@ -903,8 +699,6 @@ private fun SnoreLabRecordSetupView(
     latestSession: NightSession?,
     onStartRecording: () -> Unit,
     onOpenDelayedStart: () -> Unit,
-    onOpenSleepSounds: () -> Unit,
-    onOpenAlarm: () -> Unit,
     onOpenLatestResult: () -> Unit,
     onSeedDemoClicked: () -> Unit
 ) {
@@ -1007,7 +801,7 @@ private fun SnoreLabRecordSetupView(
             }
         }
 
-        // 2. SnoreLab Pre-Sleep Options List (Verzögerter Start, Einschlafgeräusche, Wecker)
+        // 2. SnoreLab Pre-Sleep Options List (Verzögerter Start)
         Surface(
             shape = RoundedCornerShape(20.dp),
             color = MaterialTheme.colorScheme.surfaceContainer,
@@ -1020,24 +814,6 @@ private fun SnoreLabRecordSetupView(
                     title = "Verzögerter Start",
                     valueText = if (settings.delayedStartMinutes == 0) "Sofort" else "${settings.delayedStartMinutes} Min.",
                     onClick = onOpenDelayedStart
-                )
-                SetupOptionRow(
-                    icon = Icons.Default.MusicNote,
-                    iconTint = SnoreLightYellow,
-                    title = "Einschlafgeräusche",
-                    valueText = if (settings.sleepSoundType == SleepSoundType.NONE) "Aus" else "${settings.sleepSoundType.iconEmoji} ${settings.sleepSoundType.title}",
-                    onClick = onOpenSleepSounds
-                )
-                SetupOptionRow(
-                    icon = Icons.Default.Alarm,
-                    iconTint = SnoreQuietGreen,
-                    title = "Aufwach-Wecker",
-                    valueText = if (settings.alarmEnabled) {
-                        String.format(Locale.getDefault(), "%02d:%02d Uhr", settings.alarmHour, settings.alarmMinute)
-                    } else {
-                        "Aus"
-                    },
-                    onClick = onOpenAlarm
                 )
             }
         }

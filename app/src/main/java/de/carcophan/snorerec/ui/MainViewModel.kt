@@ -7,12 +7,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import de.carcophan.snorerec.SnoreRecApp
 import de.carcophan.snorerec.audio.AudioPlayer
-import de.carcophan.snorerec.audio.SleepSoundGenerator
 import de.carcophan.snorerec.data.model.NightSession
 import de.carcophan.snorerec.data.model.SnoreEvent
 import de.carcophan.snorerec.data.model.SnoreIntensity
 import de.carcophan.snorerec.data.preferences.RecordingMode
-import de.carcophan.snorerec.data.preferences.SleepSoundType
 import de.carcophan.snorerec.data.preferences.SnoreSettingsState
 import de.carcophan.snorerec.data.repository.StorageUsageInfo
 import de.carcophan.snorerec.service.SnoreMonitoringService
@@ -102,7 +100,6 @@ class MainViewModel : ViewModel() {
     private val repository = app.repository
     private val preferences = app.preferences
     private val audioPlayer = AudioPlayer(viewModelScope)
-    private val previewSoundGenerator = SleepSoundGenerator(viewModelScope)
 
     val settings: StateFlow<SnoreSettingsState> = preferences.state
 
@@ -112,7 +109,6 @@ class MainViewModel : ViewModel() {
     val sessionStartTimeMs: StateFlow<Long> = SnoreMonitoringService.sessionStartTimeMs
     val currentDb: StateFlow<Float> = SnoreMonitoringService.currentDb
     val liveSnoreCount: StateFlow<Int> = SnoreMonitoringService.snoreCount
-    val isAlarmRinging: StateFlow<Boolean> = SnoreMonitoringService.isAlarmRinging
 
     val sessions: StateFlow<List<NightSession>> = repository.sessions
     val selectedSession: StateFlow<NightSession?> = repository.selectedSession
@@ -122,9 +118,6 @@ class MainViewModel : ViewModel() {
     val isPlaying: StateFlow<Boolean> = audioPlayer.isPlaying
     val playbackProgress: StateFlow<Float> = audioPlayer.playbackProgress
     val playbackDurationMs: StateFlow<Long> = audioPlayer.playbackDurationMs
-
-    val isPreviewingSleepSound: StateFlow<Boolean> = previewSoundGenerator.isPlaying
-    val previewingSoundType: StateFlow<SleepSoundType> = previewSoundGenerator.activeSound
 
     private val _storageUsage = MutableStateFlow(StorageUsageInfo(0, 0L))
     val storageUsage: StateFlow<StorageUsageInfo> = _storageUsage.asStateFlow()
@@ -159,7 +152,6 @@ class MainViewModel : ViewModel() {
     }
 
     fun toggleMonitoring(context: Context) {
-        stopPreviewSleepSound()
         if (isMonitoring.value) {
             SnoreMonitoringService.stop(context)
             refreshStorageUsage()
@@ -170,10 +162,6 @@ class MainViewModel : ViewModel() {
 
     fun skipDelayedStart(context: Context) {
         SnoreMonitoringService.skipDelayedStart(context)
-    }
-
-    fun dismissAlarm(context: Context) {
-        SnoreMonitoringService.dismissAlarm(context)
     }
 
     fun selectSession(sessionId: Long) {
@@ -242,7 +230,6 @@ class MainViewModel : ViewModel() {
     }
 
     fun playAudio(eventId: Long, filePath: String, onFinished: (() -> Unit)? = null) {
-        stopPreviewSleepSound()
         audioPlayer.play(eventId, filePath, onFinished)
     }
 
@@ -252,7 +239,6 @@ class MainViewModel : ViewModel() {
         filePath: String? = null,
         onFinished: (() -> Unit)? = null
     ) {
-        stopPreviewSleepSound()
         audioPlayer.seekTo(
             progress = progress,
             eventId = eventId,
@@ -289,32 +275,6 @@ class MainViewModel : ViewModel() {
 
     // Preferences delegators
     fun setDelayedStartMinutes(minutes: Int) = preferences.setDelayedStartMinutes(minutes)
-
-    fun setSleepSound(type: SleepSoundType, durationMinutes: Int, volume: Float) {
-        preferences.setSleepSound(type, durationMinutes, volume)
-        if (previewSoundGenerator.isPlaying.value) {
-            previewSoundGenerator.setVolume(volume)
-        }
-    }
-
-    fun togglePreviewSleepSound(type: SleepSoundType, volume: Float) {
-        audioPlayer.stop()
-        if (previewSoundGenerator.isPlaying.value && previewSoundGenerator.activeSound.value == type) {
-            previewSoundGenerator.stop()
-        } else if (type == SleepSoundType.NONE) {
-            previewSoundGenerator.stop()
-        } else {
-            previewSoundGenerator.start(type, volume = volume, durationMs = 60_000L)
-        }
-    }
-
-    fun stopPreviewSleepSound() {
-        previewSoundGenerator.stop()
-    }
-
-    fun setAlarm(enabled: Boolean, hour: Int, minute: Int, smartWindowMinutes: Int, vibrate: Boolean) {
-        preferences.setAlarm(enabled, hour, minute, smartWindowMinutes, vibrate)
-    }
 
     fun toggleRemedyForTonight(name: String) = preferences.toggleRemedyForTonight(name)
     fun toggleFactorForTonight(name: String) = preferences.toggleFactorForTonight(name)
@@ -355,7 +315,6 @@ class MainViewModel : ViewModel() {
 
     override fun onCleared() {
         audioPlayer.stop()
-        previewSoundGenerator.stop()
         super.onCleared()
     }
 

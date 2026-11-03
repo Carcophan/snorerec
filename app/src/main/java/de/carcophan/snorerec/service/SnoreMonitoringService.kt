@@ -8,10 +8,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
-import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
-import android.media.ToneGenerator
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -23,12 +21,10 @@ import de.carcophan.snorerec.R
 import de.carcophan.snorerec.SnoreRecApp
 import de.carcophan.snorerec.audio.AudioConfig
 import de.carcophan.snorerec.audio.RingBuffer
-import de.carcophan.snorerec.audio.SleepSoundGenerator
 import de.carcophan.snorerec.audio.SnoreDetector
 import de.carcophan.snorerec.audio.YamnetClassifier
 import de.carcophan.snorerec.data.model.SnoreEvent
 import de.carcophan.snorerec.data.preferences.RecordingMode
-import de.carcophan.snorerec.data.preferences.SleepSoundType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -39,18 +35,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
-import java.util.Calendar
 
 class SnoreMonitoringService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
     private var recordingJob: Job? = null
-    private var alarmJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var audioRecord: AudioRecord? = null
     private var snoreDetector: SnoreDetector? = null
     private var yamnetClassifier: YamnetClassifier? = null
-    private val sleepSoundGenerator = SleepSoundGenerator(serviceScope)
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -62,11 +55,6 @@ class SnoreMonitoringService : Service() {
             }
             ACTION_SKIP_DELAY -> {
                 _delayedStartRemainingSeconds.value = 0
-                sleepSoundGenerator.stop()
-                return START_STICKY
-            }
-            ACTION_DISMISS_ALARM -> {
-                dismissAlarm()
                 return START_STICKY
             }
         }
@@ -106,7 +94,6 @@ class SnoreMonitoringService : Service() {
         _snoreCount.value = 0
         _currentDb.value = 20f
         _sessionStartTimeMs.value = System.currentTimeMillis()
-        _isAlarmRinging.value = false
 
         val delayMin = settings.delayedStartMinutes
         _delayedStartRemainingSeconds.value = delayMin * 60
@@ -122,24 +109,14 @@ class SnoreMonitoringService : Service() {
             )
             _currentSessionId.value = sessionId
 
-            // 1. Optional Delayed Start + Sleep Sound Phase
+            // 1. Optional Delayed Start Phase
             if (delayMin > 0) {
-                if (settings.sleepSoundType != SleepSoundType.NONE) {
-                    val soundDurMs = minOf(delayMin, settings.sleepSoundDurationMinutes) * 60_000L
-                    sleepSoundGenerator.start(
-                        soundType = settings.sleepSoundType,
-                        volume = settings.sleepSoundVolume,
-                        durationMs = soundDurMs
-                    )
-                }
-
                 while (isActive && _isMonitoring.value && _delayedStartRemainingSeconds.value > 0) {
                     delay(1000L)
                     if (_delayedStartRemainingSeconds.value > 0) {
                         _delayedStartRemainingSeconds.value -= 1
                     }
                 }
-                sleepSoundGenerator.stop()
             }
 
             _isInDelayedStart.value = false
@@ -199,69 +176,12 @@ class SnoreMonitoringService : Service() {
                 },
                 onAudioLevel = { db ->
                     _currentDb.value = db
-                    checkSmartAlarm(db)
                 }
             )
             snoreDetector = detector
 
             runAudioLoop(detector)
         }
-    }
-
-    private var alarmTriggeredForSession = false
-
-    private fun checkSmartAlarm(currentDb: Float) {
-        if (alarmTriggeredForSession || _isAlarmRinging.value) return
-        val settings = SnoreRecApp.instance.preferences.state.value
-        if (!settings.alarmEnabled) return
-
-        // Only check alarm if session has been running for at least 2 minutes (prevent immediate re-trigger if set to current time)
-        if (System.currentTimeMillis() - _sessionStartTimeMs.value < 60_000L) return
-
-        val now = Calendar.getInstance()
-        val nowMinutesOfDay = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
-        val targetMinutesOfDay = settings.alarmHour * 60 + settings.alarmMinute
-
-        var diffMinutes = targetMinutesOfDay - nowMinutesOfDay
-        if (diffMinutes < -720) diffMinutes += 1440
-
-        val inExactWindow = diffMinutes == 0
-        val inSmartWindow = settings.smartAlarmWindowMinutes > 0 &&
-            diffMinutes in 1..settings.smartAlarmWindowMinutes &&
-            currentDb >= 44f
-
-        if (inExactWindow || inSmartWindow) {
-            alarmTriggeredForSession = true
-            triggerWakeUpAlarm()
-        }
-    }
-
-    private fun triggerWakeUpAlarm() {
-        _isAlarmRinging.value = true
-        alarmJob?.cancel()
-        alarmJob = serviceScope.launch {
-            val toneGen = try {
-                ToneGenerator(AudioManager.STREAM_ALARM, 75)
-            } catch (_: Exception) {
-                null
-            }
-            try {
-                var ticks = 0
-                while (isActive && _isAlarmRinging.value && ticks < 60) {
-                    toneGen?.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 400)
-                    delay(1200L)
-                    ticks++
-                }
-            } finally {
-                try { toneGen?.release() } catch (_: Exception) {}
-            }
-        }
-    }
-
-    private fun dismissAlarm() {
-        _isAlarmRinging.value = false
-        alarmJob?.cancel()
-        alarmJob = null
     }
 
     private fun runAudioLoop(detector: SnoreDetector) {
@@ -310,8 +230,6 @@ class SnoreMonitoringService : Service() {
         _isMonitoring.value = false
         _isInDelayedStart.value = false
         _delayedStartRemainingSeconds.value = 0
-        dismissAlarm()
-        sleepSoundGenerator.stop()
 
         snoreDetector?.stopAndFlush()
         snoreDetector = null
@@ -395,7 +313,6 @@ class SnoreMonitoringService : Service() {
         const val ACTION_START = "de.carcophan.snorerec.START"
         const val ACTION_STOP = "de.carcophan.snorerec.STOP"
         const val ACTION_SKIP_DELAY = "de.carcophan.snorerec.SKIP_DELAY"
-        const val ACTION_DISMISS_ALARM = "de.carcophan.snorerec.DISMISS_ALARM"
         private const val NOTIFICATION_ID = 1001
 
         private val _isMonitoring = MutableStateFlow(false)
@@ -419,9 +336,6 @@ class SnoreMonitoringService : Service() {
         private val _snoreCount = MutableStateFlow(0)
         val snoreCount: StateFlow<Int> = _snoreCount.asStateFlow()
 
-        private val _isAlarmRinging = MutableStateFlow(false)
-        val isAlarmRinging: StateFlow<Boolean> = _isAlarmRinging.asStateFlow()
-
         fun start(context: Context) {
             val intent = Intent(context, SnoreMonitoringService::class.java).apply {
                 action = ACTION_START
@@ -439,13 +353,6 @@ class SnoreMonitoringService : Service() {
         fun skipDelayedStart(context: Context) {
             val intent = Intent(context, SnoreMonitoringService::class.java).apply {
                 action = ACTION_SKIP_DELAY
-            }
-            context.startService(intent)
-        }
-
-        fun dismissAlarm(context: Context) {
-            val intent = Intent(context, SnoreMonitoringService::class.java).apply {
-                action = ACTION_DISMISS_ALARM
             }
             context.startService(intent)
         }
