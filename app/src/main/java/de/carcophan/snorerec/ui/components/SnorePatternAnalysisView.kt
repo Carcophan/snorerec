@@ -6,8 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -39,7 +37,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.carcophan.snorerec.data.model.NightSession
-import de.carcophan.snorerec.data.model.SnoreCatalog
 import de.carcophan.snorerec.ui.SessionAnalysis
 import de.carcophan.snorerec.ui.theme.SnoreEpicRed
 import de.carcophan.snorerec.ui.theme.SnoreLabCyan
@@ -55,7 +52,6 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SnorePatternAnalysisView(
     analysis: SessionAnalysis,
@@ -293,7 +289,7 @@ fun SnorePatternAnalysisView(
             }
         }
 
-        // 3. Remedies, Factors, Morning Sleep Rating & Notes Card
+        // 3. Morning Sleep Rating & Notes Card
         if (session != null) {
             Surface(
                 shape = RoundedCornerShape(18.dp),
@@ -307,7 +303,7 @@ fun SnorePatternAnalysisView(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Hilfsmittel, Faktoren & Schlafgefühl",
+                            text = "Schlafgefühl & Notizen",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -315,7 +311,7 @@ fun SnorePatternAnalysisView(
                             IconButton(onClick = onEditMetadataClicked) {
                                 Icon(
                                     imageVector = Icons.Default.Edit,
-                                    contentDescription = "Nacht bearbeiten",
+                                    contentDescription = "Notiz bearbeiten",
                                     tint = SnoreLabCyan
                                 )
                             }
@@ -349,52 +345,6 @@ fun SnorePatternAnalysisView(
                                         }
                                         .padding(2.dp)
                                 )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    // Remedies & Factors Chips
-                    if (session.remedies.isEmpty() && session.factors.isEmpty()) {
-                        Text(
-                            text = "Keine Hilfsmittel oder Faktoren für diese Nacht hinterlegt. Tippe auf das Stift-Symbol, um welche hinzuzufügen.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    } else {
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            session.remedies.forEach { r ->
-                                val item = SnoreCatalog.findRemedy(r)
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = SnoreQuietGreen.copy(alpha = 0.16f)
-                                ) {
-                                    Text(
-                                        text = "${item.iconEmoji} ${item.name}",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = SnoreQuietGreen,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                    )
-                                }
-                            }
-                            session.factors.forEach { f ->
-                                val item = SnoreCatalog.findFactor(f)
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = SnoreLoudOrange.copy(alpha = 0.16f)
-                                ) {
-                                    Text(
-                                        text = "${item.iconEmoji} ${item.name}",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = SnoreLoudOrange,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                    )
-                                }
                             }
                         }
                     }

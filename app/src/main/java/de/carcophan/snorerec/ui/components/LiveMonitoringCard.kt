@@ -11,8 +11,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -50,7 +48,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import de.carcophan.snorerec.data.model.SnoreCatalog
 import de.carcophan.snorerec.data.preferences.SleepSoundType
 import de.carcophan.snorerec.ui.theme.SnoreEpicRed
 import de.carcophan.snorerec.ui.theme.SnoreLabCyan
@@ -64,7 +61,6 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.sin
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LiveMonitoringCard(
     currentDb: Float,
@@ -79,8 +75,6 @@ fun LiveMonitoringCard(
     alarmHour: Int = 7,
     alarmMinute: Int = 0,
     sleepSoundType: SleepSoundType = SleepSoundType.NONE,
-    selectedRemedies: Set<String> = emptySet(),
-    selectedFactors: Set<String> = emptySet(),
     modifier: Modifier = Modifier
 ) {
     var currentTimeMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -328,45 +322,6 @@ fun LiveMonitoringCard(
                     color = levelColor,
                     trackColor = SnoreLabSurfaceElevated
                 )
-            }
-
-            // Tonight's selected Remedies & Factors
-            if (selectedRemedies.isNotEmpty() || selectedFactors.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    selectedRemedies.forEach { r ->
-                        val item = SnoreCatalog.findRemedy(r)
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = SnoreQuietGreen.copy(alpha = 0.16f)
-                        ) {
-                            Text(
-                                text = "${item.iconEmoji} ${item.name}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = SnoreQuietGreen,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
-                    selectedFactors.forEach { f ->
-                        val item = SnoreCatalog.findFactor(f)
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = SnoreLoudOrange.copy(alpha = 0.16f)
-                        ) {
-                            Text(
-                                text = "${item.iconEmoji} ${item.name}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = SnoreLoudOrange,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
-                }
             }
 
             Spacer(modifier = Modifier.height(22.dp))

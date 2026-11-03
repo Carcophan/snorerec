@@ -44,19 +44,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.carcophan.snorerec.data.model.NightSession
-import de.carcophan.snorerec.data.model.SnoreCatalog
 import de.carcophan.snorerec.ui.TrendsAnalysis
-import de.carcophan.snorerec.ui.theme.SnoreEpicRed
 import de.carcophan.snorerec.ui.theme.SnoreLabCyan
-import de.carcophan.snorerec.ui.theme.SnoreLabSurfaceElevated
-import de.carcophan.snorerec.ui.theme.SnoreLightYellow
-import de.carcophan.snorerec.ui.theme.SnoreLoudOrange
 import de.carcophan.snorerec.ui.theme.SnoreQuietGreen
 import de.carcophan.snorerec.ui.theme.snoreScoreColor
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.math.abs
 import kotlin.math.max
 
 @Composable
@@ -89,7 +83,7 @@ fun TrendsTabView(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Zeichne mehrere Nächte auf oder lade die 10 Beispiel-Nächte, um deinen Schnarch-Score-Verlauf sowie die Wirksamkeit von Hilfsmitteln & Faktoren zu vergleichen.",
+                    text = "Zeichne mehrere Nächte auf oder lade die 10 Beispiel-Nächte, um deinen Schnarch-Score-Verlauf zu analysieren.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -191,105 +185,6 @@ fun TrendsTabView(
                 valueColor = snoreScoreColor(trends.highestSnoreScore),
                 modifier = Modifier.weight(1f)
             )
-        }
-
-        // 4. Remedy Effectiveness Analysis (Hilfsmittel-Wirksamkeit)
-        Surface(
-            shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Hilfsmittel-Wirksamkeit (SnoreLab Vergleich)",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = "Vergleich des durchschnittlichen Schnarch-Scores mit Hilfsmittel gegenüber Nächten ohne Hilfsmittel (Ø Score ${trends.baselineNoRemedyScore}).",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-
-                if (trends.remedyStats.isEmpty()) {
-                    Text(
-                        text = "Noch keine Nächte mit ausgewählten Hilfsmitteln aufgezeichnet.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    val maxScore = max(100, max(trends.baselineNoRemedyScore, trends.remedyStats.maxOf { it.avgSnoreScore }))
-
-                    // Baseline row
-                    EffectivenessBarRow(
-                        emoji = "➖",
-                        name = "Ohne Hilfsmittel (Basis)",
-                        nightsCount = sessions.count { it.remedies.isEmpty() },
-                        avgScore = trends.baselineNoRemedyScore,
-                        maxScore = maxScore,
-                        deltaPct = null
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    trends.remedyStats.forEach { stat ->
-                        val item = SnoreCatalog.findRemedy(stat.name)
-                        EffectivenessBarRow(
-                            emoji = item.iconEmoji,
-                            name = item.name,
-                            nightsCount = stat.nightsCount,
-                            avgScore = stat.avgSnoreScore,
-                            maxScore = maxScore,
-                            deltaPct = stat.deltaScorePercentVsBaseline
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                }
-            }
-        }
-
-        // 5. Factor Impact Analysis (Faktoren-Einfluss)
-        Surface(
-            shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Einfluss von Faktoren (Alkohol, Lage, etc.)",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = "Zeigt, welche Lebensstil-Faktoren dein Schnarchen verstärken.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-
-                if (trends.factorStats.isEmpty()) {
-                    Text(
-                        text = "Noch keine Faktoren in deinen Nächten markiert.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    val maxScore = max(100, trends.factorStats.maxOf { it.avgSnoreScore })
-                    trends.factorStats.forEach { stat ->
-                        val item = SnoreCatalog.findFactor(stat.name)
-                        EffectivenessBarRow(
-                            emoji = item.iconEmoji,
-                            name = item.name,
-                            nightsCount = stat.nightsCount,
-                            avgScore = stat.avgSnoreScore,
-                            maxScore = maxScore,
-                            deltaPct = stat.deltaScorePercentVsBaseline
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                }
-            }
         }
     }
 }
@@ -483,73 +378,6 @@ private fun TrendMetricCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline
             )
-        }
-    }
-}
-
-@Composable
-private fun EffectivenessBarRow(
-    emoji: String,
-    name: String,
-    nightsCount: Int,
-    avgScore: Int,
-    maxScore: Int,
-    deltaPct: Int?
-) {
-    val barColor = snoreScoreColor(avgScore)
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = SnoreLabSurfaceElevated,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "$emoji $name ($nightsCount Nächte)",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (deltaPct != null && deltaPct != 0) {
-                        val isImprovement = deltaPct < 0
-                        val deltaColor = if (isImprovement) SnoreQuietGreen else SnoreEpicRed
-                        val sign = if (deltaPct > 0) "+" else ""
-                        Text(
-                            text = "$sign$deltaPct%  ",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = deltaColor
-                        )
-                    }
-                    Text(
-                        text = "Ø Score $avgScore",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = barColor
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainer)
-            ) {
-                val frac = (avgScore.toFloat() / maxScore.toFloat()).coerceIn(0.05f, 1f)
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(frac)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(barColor)
-                )
-            }
         }
     }
 }

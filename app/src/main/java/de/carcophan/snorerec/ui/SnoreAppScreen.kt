@@ -43,7 +43,6 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Healing
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MusicNote
@@ -97,24 +96,20 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import de.carcophan.snorerec.data.model.NightSession
-import de.carcophan.snorerec.data.model.SnoreCatalog
 import de.carcophan.snorerec.data.model.SnoreIntensity
 import de.carcophan.snorerec.data.preferences.SleepSoundType
 import de.carcophan.snorerec.data.preferences.SnoreSettingsState
 import de.carcophan.snorerec.ui.components.LiveMonitoringCard
-import de.carcophan.snorerec.ui.components.RemediesAndGuideTabView
 import de.carcophan.snorerec.ui.components.SettingsTabView
 import de.carcophan.snorerec.ui.components.SnoreEventCard
 import de.carcophan.snorerec.ui.components.SnorePatternAnalysisView
 import de.carcophan.snorerec.ui.components.SnoreTimelineChart
 import de.carcophan.snorerec.ui.components.TrendsTabView
-import de.carcophan.snorerec.ui.theme.SnoreEpicRed
 import de.carcophan.snorerec.ui.theme.SnoreLabBgDark
 import de.carcophan.snorerec.ui.theme.SnoreLabCyan
 import de.carcophan.snorerec.ui.theme.SnoreLabSurface
 import de.carcophan.snorerec.ui.theme.SnoreLabSurfaceElevated
 import de.carcophan.snorerec.ui.theme.SnoreLightYellow
-import de.carcophan.snorerec.ui.theme.SnoreLoudOrange
 import de.carcophan.snorerec.ui.theme.SnoreQuietGreen
 import de.carcophan.snorerec.ui.theme.snoreScoreColor
 import java.text.SimpleDateFormat
@@ -125,7 +120,6 @@ private enum class MainBottomTab(val label: String, val icon: ImageVector) {
     RECORD("Aufzeichnen", Icons.Default.Mic),
     RESULTS("Ergebnisse", Icons.Default.GraphicEq),
     TRENDS("Trends", Icons.AutoMirrored.Filled.ShowChart),
-    REMEDIES("Hilfsmittel", Icons.Default.Healing),
     SETTINGS("Profil", Icons.Default.Settings)
 }
 
@@ -171,7 +165,6 @@ fun SnoreAppScreen(
     var showDelayedStartDialog by remember { mutableStateOf(false) }
     var showSleepSoundDialog by remember { mutableStateOf(false) }
     var showAlarmDialog by remember { mutableStateOf(false) }
-    var showTonightFactorsDialog by remember { mutableStateOf(false) }
     var showEditSessionMetadataDialog by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -297,9 +290,7 @@ fun SnoreAppScreen(
                                 alarmEnabled = settings.alarmEnabled,
                                 alarmHour = settings.alarmHour,
                                 alarmMinute = settings.alarmMinute,
-                                sleepSoundType = settings.sleepSoundType,
-                                selectedRemedies = settings.selectedRemedies,
-                                selectedFactors = settings.selectedFactors
+                                sleepSoundType = settings.sleepSoundType
                             )
                         } else {
                             SnoreLabRecordSetupView(
@@ -317,7 +308,6 @@ fun SnoreAppScreen(
                                 onOpenDelayedStart = { showDelayedStartDialog = true },
                                 onOpenSleepSounds = { showSleepSoundDialog = true },
                                 onOpenAlarm = { showAlarmDialog = true },
-                                onOpenRemediesAndFactors = { showTonightFactorsDialog = true },
                                 onOpenLatestResult = {
                                     currentBottomTab = MainBottomTab.RESULTS
                                 },
@@ -581,24 +571,6 @@ fun SnoreAppScreen(
                                 currentBottomTab = MainBottomTab.RESULTS
                             },
                             onSeedDemoClicked = { viewModel.seedDemoSessions() }
-                        )
-                    }
-                }
-
-                MainBottomTab.REMEDIES -> {
-                    item {
-                        RemediesAndGuideTabView(
-                            selectedRemedies = settings.selectedRemedies,
-                            selectedFactors = settings.selectedFactors,
-                            customRemedies = settings.customRemedies,
-                            customFactors = settings.customFactors,
-                            trends = trends,
-                            onToggleRemedy = { viewModel.toggleRemedyForTonight(it) },
-                            onToggleFactor = { viewModel.toggleFactorForTonight(it) },
-                            onAddCustomRemedy = { viewModel.addCustomRemedy(it) },
-                            onRemoveCustomRemedy = { viewModel.removeCustomRemedy(it) },
-                            onAddCustomFactor = { viewModel.addCustomFactor(it) },
-                            onRemoveCustomFactor = { viewModel.removeCustomFactor(it) }
                         )
                     }
                 }
@@ -883,27 +855,13 @@ fun SnoreAppScreen(
         )
     }
 
-    if (showTonightFactorsDialog) {
-        TonightRemediesAndFactorsDialog(
-            selectedRemedies = settings.selectedRemedies,
-            selectedFactors = settings.selectedFactors,
-            customRemedies = settings.customRemedies,
-            customFactors = settings.customFactors,
-            onToggleRemedy = { viewModel.toggleRemedyForTonight(it) },
-            onToggleFactor = { viewModel.toggleFactorForTonight(it) },
-            onDismiss = { showTonightFactorsDialog = false }
-        )
-    }
-
     if (showEditSessionMetadataDialog && selectedSession != null) {
         val sess = selectedSession!!
-        var editedRemedies by remember(sess.id) { mutableStateOf(sess.remedies.toSet()) }
-        var editedFactors by remember(sess.id) { mutableStateOf(sess.factors.toSet()) }
         var editedNote by remember(sess.id) { mutableStateOf(sess.note) }
 
         AlertDialog(
             onDismissRequest = { showEditSessionMetadataDialog = false },
-            title = { Text("Nacht-Details bearbeiten") },
+            title = { Text("Nacht-Notiz bearbeiten") },
             text = {
                 Column(
                     modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -915,44 +873,12 @@ fun SnoreAppScreen(
                         label = { Text("Persönliche Notiz zur Nacht") },
                         modifier = Modifier.fillMaxWidth()
                     )
-
-                    Text("Verwendete Hilfsmittel:", style = MaterialTheme.typography.labelLarge, color = SnoreQuietGreen)
-                    @OptIn(ExperimentalLayoutApi::class)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        (settings.customRemedies.map { SnoreCatalog.findRemedy(it) } + SnoreCatalog.defaultRemedies).forEach { r ->
-                            val sel = editedRemedies.contains(r.name)
-                            FilterChip(
-                                selected = sel,
-                                onClick = {
-                                    editedRemedies = if (sel) editedRemedies - r.name else editedRemedies + r.name
-                                },
-                                label = { Text("${r.iconEmoji} ${r.name}") }
-                            )
-                        }
-                    }
-
-                    Text("Einfluss-Faktoren:", style = MaterialTheme.typography.labelLarge, color = SnoreLoudOrange)
-                    @OptIn(ExperimentalLayoutApi::class)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        (settings.customFactors.map { SnoreCatalog.findFactor(it) } + SnoreCatalog.defaultFactors).forEach { f ->
-                            val sel = editedFactors.contains(f.name)
-                            FilterChip(
-                                selected = sel,
-                                onClick = {
-                                    editedFactors = if (sel) editedFactors - f.name else editedFactors + f.name
-                                },
-                                label = { Text("${f.iconEmoji} ${f.name}") }
-                            )
-                        }
-                    }
                 }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
                         viewModel.updateSelectedSessionMetadata(
-                            remedies = editedRemedies.toList(),
-                            factors = editedFactors.toList(),
                             note = editedNote
                         )
                         showEditSessionMetadataDialog = false
@@ -970,7 +896,6 @@ fun SnoreAppScreen(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SnoreLabRecordSetupView(
     settings: SnoreSettingsState,
@@ -980,7 +905,6 @@ private fun SnoreLabRecordSetupView(
     onOpenDelayedStart: () -> Unit,
     onOpenSleepSounds: () -> Unit,
     onOpenAlarm: () -> Unit,
-    onOpenRemediesAndFactors: () -> Unit,
     onOpenLatestResult: () -> Unit,
     onSeedDemoClicked: () -> Unit
 ) {
@@ -1083,7 +1007,7 @@ private fun SnoreLabRecordSetupView(
             }
         }
 
-        // 2. SnoreLab Pre-Sleep Options List (Verzögerter Start, Einschlafgeräusche, Wecker, Hilfsmittel & Faktoren)
+        // 2. SnoreLab Pre-Sleep Options List (Verzögerter Start, Einschlafgeräusche, Wecker)
         Surface(
             shape = RoundedCornerShape(20.dp),
             color = MaterialTheme.colorScheme.surfaceContainer,
@@ -1115,50 +1039,6 @@ private fun SnoreLabRecordSetupView(
                     },
                     onClick = onOpenAlarm
                 )
-                SetupOptionRow(
-                    icon = Icons.Default.Healing,
-                    iconTint = SnoreLoudOrange,
-                    title = "Hilfsmittel & Faktoren heute Nacht",
-                    valueText = "${settings.selectedRemedies.size + settings.selectedFactors.size} gewählt",
-                    onClick = onOpenRemediesAndFactors
-                )
-
-                if (settings.selectedRemedies.isNotEmpty() || settings.selectedFactors.isNotEmpty()) {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        settings.selectedRemedies.forEach { r ->
-                            val item = SnoreCatalog.findRemedy(r)
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = SnoreQuietGreen.copy(alpha = 0.16f)
-                            ) {
-                                Text(
-                                    text = "${item.iconEmoji} ${item.name}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = SnoreQuietGreen,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
-                            }
-                        }
-                        settings.selectedFactors.forEach { f ->
-                            val item = SnoreCatalog.findFactor(f)
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = SnoreLoudOrange.copy(alpha = 0.16f)
-                            ) {
-                                Text(
-                                    text = "${item.iconEmoji} ${item.name}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = SnoreLoudOrange,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
-                            }
-                        }
-                    }
-                }
             }
         }
 
@@ -1231,7 +1111,7 @@ private fun SnoreLabRecordSetupView(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Lade 10 realistische Beispiel-Nächte mit abspielbaren Schnarch-Samples, Hilfsmitteln und Trends, um alle SnoreLab-Funktionen sofort auszuprobieren.",
+                        text = "Lade 10 realistische Beispiel-Nächte mit abspielbaren Schnarch-Samples und Trends, um alle SnoreLab-Funktionen sofort auszuprobieren.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -1371,78 +1251,6 @@ private fun SnoreLabNightRibbon(
             }
         }
     }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun TonightRemediesAndFactorsDialog(
-    selectedRemedies: Set<String>,
-    selectedFactors: Set<String>,
-    customRemedies: Set<String>,
-    customFactors: Set<String>,
-    onToggleRemedy: (String) -> Unit,
-    onToggleFactor: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Hilfsmittel & Faktoren heute Nacht") },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = "Hilfsmittel (Remedies):",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = SnoreQuietGreen
-                )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    val remedies = customRemedies.map { SnoreCatalog.findRemedy(it) } + SnoreCatalog.defaultRemedies
-                    remedies.forEach { item ->
-                        val selected = selectedRemedies.contains(item.name)
-                        FilterChip(
-                            selected = selected,
-                            onClick = { onToggleRemedy(item.name) },
-                            label = { Text("${item.iconEmoji} ${item.name}") }
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = "Faktoren (Factors):",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = SnoreLoudOrange
-                )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    val factors = customFactors.map { SnoreCatalog.findFactor(it) } + SnoreCatalog.defaultFactors
-                    factors.forEach { item ->
-                        val selected = selectedFactors.contains(item.name)
-                        FilterChip(
-                            selected = selected,
-                            onClick = { onToggleFactor(item.name) },
-                            label = { Text("${item.iconEmoji} ${item.name}") }
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Fertig")
-            }
-        }
-    )
 }
 
 @Composable
